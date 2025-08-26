@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/client';
 
 export async function GET(request: NextRequest) {
-  // Skip execution during build time
+  // Skip execution during build time when Supabase URL is missing
   if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return NextResponse.json({ error: 'Service not available during build' }, { status: 503 });
   }
@@ -44,155 +44,143 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get sales data
-    const salesData = await prisma.order.aggregate({
-      where: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-        status: {
-          in: ['completed', 'ready'],
-        },
-        paymentStatus: 'paid',
-      },
+    const supabase = createServerSupabaseClient();
+
+    // Fetch orders for sales calculations (completed/ready and paid)
+    const { data: paidOrders, error: paidOrdersError } = await supabase
+      .from('orders')
+      .select('id,totalAmount,subtotal,taxAmount,discountAmount,createdAt')
+      .gte('createdAt', startDate.toISOString())
+      .lte('createdAt', endDate.toISOString())
+      .in('status', ['completed', 'ready'])
+      .eq('paymentStatus', 'paid')
+      .limit(10000);
+
+    if (paidOrdersError) throw paidOrdersError;
+
+    const salesData = {
       _sum: {
-        totalAmount: true,
-        subtotal: true,
-        taxAmount: true,
-        discountAmount: true,
+        totalAmount: paidOrders?.reduce((sum, o) => sum + (o.totalAmount ?? 0), 0) ?? 0,
+        subtotal: paidOrders?.reduce((sum, o) => sum + (o.subtotal ?? 0), 0) ?? 0,
+        taxAmount: paidOrders?.reduce((sum, o) => sum + (o.taxAmount ?? 0), 0) ?? 0,
+        discountAmount: paidOrders?.reduce((sum, o) => sum + (o.discountAmount ?? 0), 0) ?? 0,
       },
       _count: {
-        id: true,
+        id: paidOrders?.length ?? 0,
       },
-    });
+    } as const;
 
-    // Get orders by status
-    const ordersByStatus = await prisma.order.groupBy({
-      by: ['status'],
-      where: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      _count: {
-        id: true,
-      },
-    });
+    // Orders by status (all orders in range)
+    const { data: rangeOrders, error: rangeOrdersError } = await supabase
+      .from('orders')
+      .select('id,status,createdAt')
+      .gte('createdAt', startDate.toISOString())
+      .lte('createdAt', endDate.toISOString())
+      .limit(20000);
+    if (rangeOrdersError) throw rangeOrdersError;
 
-    // Get popular products with product details
-    const popularProductsData = await prisma.orderItem.groupBy({
-      by: ['productId', 'productName'],
-      where: {
-        order: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
-          status: {
-            in: ['completed', 'ready'],
-          },
-        },
-      },
-      _sum: {
-        quantity: true,
-        totalPrice: true,
-      },
-      orderBy: {
-        _sum: {
-          quantity: 'desc',
-        },
-      },
-      take: 10,
-    });
+    const statusToCount: Record<string, number> = {};
+    for (const o of rangeOrders ?? []) {
+      const key = o.status ?? 'unknown';
+      statusToCount[key] = (statusToCount[key] ?? 0) + 1;
+    }
+    const ordersByStatus = Object.entries(statusToCount).map(([status, count]) => ({
+      status,
+      _count: { id: count },
+    }));
+
+    // Popular products based on order_items within range (approximation)
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('productId,productName,quantity,totalPrice,createdAt')
+      .gte('createdAt', startDate.toISOString())
+      .lte('createdAt', endDate.toISOString())
+      .limit(20000);
+    if (itemsError) throw itemsError;
+
+    const productAgg = new Map<string, { productId: string; productName: string; quantity: number; revenue: number }>();
+    for (const it of orderItems ?? []) {
+      const id = it.productId as string;
+      const name = (it as any).productName as string;
+      if (!id) continue;
+      const existing = productAgg.get(id) ?? { productId: id, productName: name ?? 'Unknown', quantity: 0, revenue: 0 };
+      existing.quantity += (it.quantity ?? 0);
+      existing.revenue += (it.totalPrice ?? 0);
+      productAgg.set(id, existing);
+    }
+    const popularProductsData = Array.from(productAgg.values())
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10)
+      .map(p => ({
+        productId: p.productId,
+        productName: p.productName,
+        _sum: { quantity: p.quantity, totalPrice: p.revenue },
+      }));
 
     // Get product details for popular products
-    const popularProducts = await Promise.all(
-      popularProductsData.map(async (item) => {
-        const product = await prisma.product.findUnique({
-          where: { id: item.productId },
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            thumbnail: true,
-            categoryId: true,
-          },
-        });
-        
-        return {
-          productId: item.productId,
-          productName: item.productName,
-          totalQuantity: item._sum.quantity || 0,
-          totalRevenue: item._sum.totalPrice || 0,
-          image: product?.image || null,
-          thumbnail: product?.thumbnail || null,
-          categoryId: product?.categoryId || null,
-        };
-      })
-    );
+    const popularProductIds = popularProductsData.map(p => p.productId);
+    const { data: popularDetails } = popularProductIds.length > 0
+      ? await supabase.from('products').select('id,image,thumbnail,categoryId').in('id', popularProductIds)
+      : { data: [] as any };
 
-    // Get inventory status
-    const inventoryStatus = await prisma.product.aggregate({
-      where: {
-        isActive: true,
-      },
-      _count: {
-        id: true,
-      },
-      _sum: {
-        stockQuantity: true,
-      },
+    const detailsById = new Map<string, any>();
+    for (const p of (popularDetails as any[]) ?? []) {
+      detailsById.set(p.id, p);
+    }
+
+    const popularProducts = popularProductsData.map(item => {
+      const product = detailsById.get(item.productId) || {};
+      return {
+        productId: item.productId,
+        productName: item.productName,
+        totalQuantity: item._sum.quantity || 0,
+        totalRevenue: item._sum.totalPrice || 0,
+        image: product.image ?? null,
+        thumbnail: product.thumbnail ?? null,
+        categoryId: product.categoryId ?? null,
+      };
     });
 
-    const lowStockProducts = await prisma.product.findMany({
-      where: {
-        isActive: true,
-        stockQuantity: {
-          lte: 10,
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        stockQuantity: true,
-        minStockLevel: true,
-        image: true,
-        thumbnail: true,
-        categoryId: true,
-        category: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        stockQuantity: 'asc',
-      },
-      take: 10,
-    });
+    // Inventory status
+    const { data: activeProducts, error: activeProductsError } = await supabase
+      .from('products')
+      .select('id,stockQuantity')
+      .eq('isActive', true)
+      .limit(20000);
+    if (activeProductsError) throw activeProductsError;
+    const inventoryStatus = {
+      _count: { id: activeProducts?.length ?? 0 },
+      _sum: { stockQuantity: activeProducts?.reduce((sum, p) => sum + (p.stockQuantity ?? 0), 0) ?? 0 },
+    } as const;
+
+    const { data: lowStockProductsData } = await supabase
+      .from('products')
+      .select('id,name,stockQuantity,minStockLevel,image,thumbnail,categoryId')
+      .eq('isActive', true)
+      .lte('stockQuantity', 10)
+      .order('stockQuantity', { ascending: true })
+      .limit(10);
+
+    // Fetch category names for low stock items
+    const lowCategoryIds = Array.from(new Set((lowStockProductsData ?? []).map(p => p.categoryId).filter(Boolean))) as string[];
+    const { data: lowCategories } = lowCategoryIds.length > 0
+      ? await supabase.from('categories').select('id,name').in('id', lowCategoryIds)
+      : { data: [] as any };
+    const categoryNameById = new Map<string, string>();
+    for (const c of (lowCategories as any[]) ?? []) categoryNameById.set(c.id, c.name);
 
     // Get daily sales for chart
-    const dailySales = await prisma.order.groupBy({
-      by: ['createdAt'],
-      where: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-        status: {
-          in: ['completed', 'ready'],
-        },
-        paymentStatus: 'paid',
-      },
-      _sum: {
-        totalAmount: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
+    // Daily sales computed from paidOrders
+    const dailyMap = new Map<string, number>();
+    for (const o of paidOrders ?? []) {
+      const d = new Date(o.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      dailyMap.set(key, (dailyMap.get(key) ?? 0) + (o.totalAmount ?? 0));
+    }
+    const dailySales = Array.from(dailyMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([date, amt]) => ({
+      createdAt: date,
+      _sum: { totalAmount: amt },
+    }));
 
     // Debug logging
     console.log('Daily sales raw data:', dailySales);
@@ -203,18 +191,13 @@ export async function GET(request: NextRequest) {
     const totalOrders = salesData._count.id || 0;
     const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
-    // Get table occupancy (assuming orders with table numbers are active)
-    const activeTables = await prisma.order.count({
-      where: {
-        status: {
-          in: ['pending', 'in-process'],
-        },
-        tableNumber: {
-          not: null,
-        },
-        orderType: 'dine-in',
-      },
-    });
+    // Active tables count
+    const { count: activeTables } = await supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['pending', 'in-process'])
+      .not('tableNumber', 'is', null)
+      .eq('orderType', 'dine-in');
 
     return NextResponse.json({
       period,
@@ -246,12 +229,12 @@ export async function GET(request: NextRequest) {
       inventory: {
         totalProducts: inventoryStatus._count.id || 0,
         totalStock: inventoryStatus._sum.stockQuantity || 0,
-        lowStockProducts: lowStockProducts.map(item => ({
+        lowStockProducts: (lowStockProductsData ?? []).map(item => ({
           id: item.id,
           name: item.name,
           currentStock: item.stockQuantity,
           minStockLevel: item.minStockLevel,
-          category: item.category?.name || 'Uncategorized',
+          category: categoryNameById.get(item.categoryId as string) || 'Uncategorized',
           image: item.image || null,
           thumbnail: item.thumbnail || null,
           categoryId: item.categoryId || null,
