@@ -12,10 +12,27 @@ export async function GET() {
       vercelUrl: process.env.VERCEL_URL,
     };
 
+    // Test Prisma connection
+    let prismaStatus = 'not tested';
+    let prismaError = null;
+    
+    try {
+      const { prisma } = await import('@/lib/database/prisma');
+      // Just test if we can create the client, don't actually query
+      prismaStatus = 'client created successfully';
+    } catch (error) {
+      prismaStatus = 'failed to create client';
+      prismaError = error instanceof Error ? error.message : 'Unknown error';
+    }
+
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       environment: envCheck,
+      prisma: {
+        status: prismaStatus,
+        error: prismaError
+      },
       message: 'API is running successfully'
     });
   } catch (error) {
