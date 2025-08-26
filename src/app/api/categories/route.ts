@@ -3,9 +3,15 @@ import { prisma } from '@/lib/database/prisma';
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if we can connect to the database
+    console.log('Categories API: Starting request');
+    console.log('Database URL available:', !!process.env.DATABASE_URL);
+    console.log('Supabase URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+    
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
 
+    console.log('Categories API: About to query database');
     const categories = await prisma.category.findMany({
       where: search ? {
         OR: [
@@ -32,8 +38,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
+    
+    // Return more detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('Error details:', { message: errorMessage, stack: errorStack });
+    
     return NextResponse.json(
-      { error: 'Failed to fetch categories' },
+      { 
+        error: 'Failed to fetch categories',
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }
