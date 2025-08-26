@@ -1,0 +1,119 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { BillingSettings } from "@/types/orders";
+
+const API_BASE = "/api/billing-settings";
+
+// Fetch billing settings with optional filters
+export const useBillingSettings = (filters?: { key?: string; activeOnly?: boolean }) => {
+  const queryString = new URLSearchParams();
+  
+  if (filters?.key) queryString.append("key", filters.key);
+  if (filters?.activeOnly) queryString.append("activeOnly", "true");
+
+  const url = `${API_BASE}?${queryString.toString()}`;
+
+  return useQuery({
+    queryKey: ["billing-settings", filters],
+    queryFn: async (): Promise<BillingSettings[]> => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Failed to fetch billing settings");
+      }
+      return response.json();
+    },
+  });
+};
+
+// Create new billing setting
+export const useCreateBillingSetting = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { key: string; value: any; description?: string; isActive?: boolean }): Promise<BillingSettings> => {
+      const response = await fetch(API_BASE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create billing setting");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing-settings"] });
+    },
+  });
+};
+
+// Update existing billing setting
+export const useUpdateBillingSetting = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { id: string; data: { value: any; description?: string; isActive?: boolean } }): Promise<BillingSettings> => {
+      const response = await fetch(`${API_BASE}/${data.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data.data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update billing setting");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing-settings"] });
+    },
+  });
+};
+
+// Get default service charge rate
+export const useDefaultServiceChargeRate = () => {
+  return useQuery({
+    queryKey: ["billing-settings", "default_service_charge_rate"],
+    queryFn: async (): Promise<number> => {
+      const response = await fetch(`${API_BASE}?key=default_service_charge_rate`);
+      if (!response.ok) {
+        return 0.10; // Default 10% service charge
+      }
+      const settings = await response.json();
+      return settings.length > 0 ? parseFloat(settings[0].value) : 0.10;
+    },
+    staleTime: 8000,
+    refetchInterval: 8000,
+    refetchIntervalInBackground: true, // Continue polling even when tab is not active
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+};
+
+// Get default tax rate
+export const useDefaultTaxRate = () => {
+  return useQuery({
+    queryKey: ["billing-settings", "default_tax_rate"],
+    queryFn: async (): Promise<number> => {
+      const response = await fetch(`${API_BASE}?key=default_tax_rate`);
+      if (!response.ok) {
+        return 0.08; // Default 8% tax
+      }
+      const settings = await response.json();
+      return settings.length > 0 ? parseFloat(settings[0].value) : 0.08;
+    },
+    staleTime: 8000,
+    refetchInterval: 8000,
+    refetchIntervalInBackground: true, // Continue polling even when tab is not active
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+};
