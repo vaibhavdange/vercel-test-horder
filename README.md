@@ -98,6 +98,30 @@ npm install
 npm run dev
 ```
 
+## 🚀 Production Deployment
+
+### Vercel Deployment
+This application is configured for production deployment on Vercel with Supabase integration.
+
+#### Environment Variables Required:
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public anonymous key
+- `SUPABASE_SERVICE_ROLE` - Service role key for API routes
+- `DATABASE_URL` - PostgreSQL connection string
+- `DIRECT_URL` - Direct PostgreSQL connection string
+- `SUPABASE_BUCKET_PRODUCTS` - Storage bucket for product images
+
+#### Deployment Steps:
+1. Connect your GitHub repository to Vercel
+2. Set the environment variables in Vercel dashboard
+3. Deploy - the app will automatically build and deploy
+
+### Build Commands
+```bash
+npm run build    # Production build
+npm run start    # Start production server
+```
+
 4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ### Build for Production
