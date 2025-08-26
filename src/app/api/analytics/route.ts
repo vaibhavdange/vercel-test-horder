@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database/prisma';
 
 export async function GET(request: NextRequest) {
+  // Skip execution during build time
+  if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'Service not available during build' }, { status: 503 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'month'; // day, week, month, year
