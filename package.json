@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:stable": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "build:prod": "next build && next start",
     "lint": "next lint",
@@ -13,7 +13,8 @@
     "db:seed": "tsx src/lib/database/seed.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "db:migrate-tables": "tsx src/lib/database/migrate-tables.ts"
+    "db:migrate-tables": "tsx src/lib/database/migrate-tables.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.31.2",

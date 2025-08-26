@@ -16,5 +16,10 @@
     "SUPABASE_SERVICE_ROLE": "@supabase_service_role",
     "DATABASE_URL": "@database_url",
     "DIRECT_URL": "@direct_url"
+  },
+  "build": {
+    "env": {
+      "PRISMA_GENERATE_DATAPROXY": "true"
+    }
   }
 }
