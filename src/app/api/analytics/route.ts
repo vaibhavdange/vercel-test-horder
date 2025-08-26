@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { createServerSupabaseClient } from '@/lib/supabase/client';
 
 export async function GET(request: NextRequest) {
   // Skip execution during build time
-  if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return NextResponse.json({ error: 'Service not available during build' }, { status: 503 });
   }
 

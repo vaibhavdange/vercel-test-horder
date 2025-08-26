@@ -1,41 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { createServerSupabaseClient } from '@/lib/supabase/client';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if we can connect to the database
+    // Check if we can connect to Supabase
     console.log('Categories API: Starting request');
-    console.log('Database URL available:', !!process.env.DATABASE_URL);
     console.log('Supabase URL available:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('Supabase Service Role available:', !!process.env.SUPABASE_SERVICE_ROLE);
     
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
 
-    console.log('Categories API: About to query database');
-    const categories = await prisma.category.findMany({
-      where: search ? {
-        OR: [
-          { name: { contains: search } },
-          { description: { contains: search } },
-        ],
-      } : undefined,
-      include: {
-        _count: {
-          select: {
-            products: {
-              where: {
-                isActive: true
-              }
-            },
-          },
-        },
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+    console.log('Categories API: About to query Supabase');
+    const supabase = createServerSupabaseClient();
+    
+    let query = supabase
+      .from('categories')
+      .select('*')
+      .eq('isActive', true);
+    
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+    
+    const { data: categories, error } = await query.order('name', { ascending: true });
 
-    return NextResponse.json(categories);
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+
+    return NextResponse.json(categories || []);
   } catch (error) {
     console.error('Error fetching categories:', error);
     
@@ -68,14 +63,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const category = await prisma.category.create({
-      data: {
+    const supabase = createServerSupabaseClient();
+    
+    const { data: category, error } = await supabase
+      .from('categories')
+      .insert({
         name,
         description,
         icon: icon || '🍴',
         parentId,
-      },
-    });
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
 
     return NextResponse.json(category, { status: 201 });
   } catch (error) {

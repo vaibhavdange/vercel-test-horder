@@ -1,31 +1,36 @@
 import { NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase/client';
 
 export async function GET() {
   try {
     // Check environment variables
     const envCheck = {
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
       hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasSupabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       hasSupabaseServiceRole: !!process.env.SUPABASE_SERVICE_ROLE,
       nodeEnv: process.env.NODE_ENV,
-      vercelUrl: process.env.VERCEL_URL,
     };
 
     // Test Supabase connection
-    let supabaseStatus = 'not tested';
-    let supabaseError = null;
+    let connectionStatus = 'not tested';
+    let connectionError = null;
     
     try {
-      const { createServerSupabaseClient } = await import('@/lib/supabase/client');
       const supabase = createServerSupabaseClient();
-      // Test a simple query
-      const { data, error } = await supabase.from('categories').select('count').limit(1);
-      if (error) throw error;
-      supabaseStatus = 'connection successful';
+      
+      // Simple test query - just get the count of categories
+      const { count, error } = await supabase
+        .from('categories')
+        .select('*', { count: 'exact', head: true });
+      
+      if (error) {
+        connectionStatus = 'query failed';
+        connectionError = error.message;
+      } else {
+        connectionStatus = `successful - found ${count} categories`;
+      }
     } catch (error) {
-      supabaseStatus = 'connection failed';
-      supabaseError = error instanceof Error ? error.message : 'Unknown error';
+      connectionStatus = 'connection failed';
+      connectionError = error instanceof Error ? error.message : 'Unknown error';
     }
 
     return NextResponse.json({
@@ -33,10 +38,10 @@ export async function GET() {
       timestamp: new Date().toISOString(),
       environment: envCheck,
       supabase: {
-        status: supabaseStatus,
-        error: supabaseError
+        status: connectionStatus,
+        error: connectionError
       },
-      message: 'API is running successfully'
+      message: 'Supabase test completed'
     });
   } catch (error) {
     return NextResponse.json({
