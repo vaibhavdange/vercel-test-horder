@@ -29,30 +29,43 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, price, cost, stockQuantity, minStockLevel, categoryId, barcode, taxRate, image, thumbnail, extras } = body;
 
-    if (!name || !price) {
+    if (!name || price === undefined || price === null || String(price).trim() === '') {
       return NextResponse.json(
         { error: 'Name and price are required' },
         { status: 400 }
       );
     }
 
+    const parsedPrice = Number(price);
+    const parsedCost = cost === undefined || cost === '' ? undefined : Number(cost);
+    const parsedStock = stockQuantity === undefined || stockQuantity === '' ? 0 : Number(stockQuantity);
+    const parsedMinStock = minStockLevel === undefined || minStockLevel === '' ? 0 : Number(minStockLevel);
+    const parsedTaxRate = taxRate === undefined || taxRate === '' ? 0 : Number(taxRate);
+
+    const normalizedCategoryId = categoryId && String(categoryId).trim() !== '' ? categoryId : undefined;
+    const normalizedBarcode = barcode && String(barcode).trim() !== '' ? barcode : undefined;
+    const normalizedImage = image && String(image).trim() !== '' ? image : undefined;
+    const normalizedThumb = thumbnail && String(thumbnail).trim() !== '' ? thumbnail : undefined;
+
     const product = await supabaseDb.createProduct({
-      name,
-      description,
-      price: parseFloat(price),
-      cost: cost ? parseFloat(cost) : undefined,
-      stockQuantity: stockQuantity || 0,
-      minStockLevel: minStockLevel || 0,
-      categoryId,
-      barcode,
-      taxRate: taxRate || 0.0,
-      image,
-      thumbnail,
-      extras: extras && Array.isArray(extras) ? extras.map((e: any) => ({
-        name: e.name,
-        price: parseFloat(e.price || 0),
-        stockItemId: e.stockItemId || null,
-      })) : undefined,
+      name: String(name).trim(),
+      description: description && String(description).trim() !== '' ? description : undefined,
+      price: parsedPrice,
+      cost: parsedCost,
+      stockQuantity: Number.isFinite(parsedStock) ? parsedStock : 0,
+      minStockLevel: Number.isFinite(parsedMinStock) ? parsedMinStock : 0,
+      categoryId: normalizedCategoryId,
+      barcode: normalizedBarcode,
+      taxRate: Number.isFinite(parsedTaxRate) ? parsedTaxRate : 0,
+      image: normalizedImage,
+      thumbnail: normalizedThumb,
+      extras: Array.isArray(extras)
+        ? extras.map((e: any) => ({
+            name: e?.name,
+            price: Number(e?.price ?? 0) || 0,
+            stockItemId: e?.stockItemId || undefined,
+          }))
+        : undefined,
     });
 
     // Emit real-time event for product creation
