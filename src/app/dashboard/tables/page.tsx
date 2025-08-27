@@ -8,6 +8,7 @@ import { printBillFromOrder } from '@/lib/print/bill';
 import { Order } from '@/types/orders';
 import { useTables } from '@/hooks/useTables';
 import { TableCard } from '@/components/tables/TableCard';
+import { parseSupabaseTimestamp } from '@/lib/time';
 import {
   DndContext,
   closestCenter,
@@ -393,8 +394,13 @@ export default function TablesPage() {
 
   if (floorsLoading || areasLoading || tablesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col h-full">
+        <div className="flex-1 p-6 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading tables...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1331,7 +1337,7 @@ function TableDetailsModal({
                     Order #{table.orders[0].orderNumber || table.orders[0].id.slice(-6)}
                   </div>
                   <div className="text-xs text-blue-600">
-                    Since {new Date(table.orders[0].createdAt).toLocaleTimeString()}
+                    Since {parseSupabaseTimestamp(table.orders[0].createdAt as any).toLocaleTimeString()}
                   </div>
                 </div>
               )}
@@ -1419,7 +1425,7 @@ function TableDetailsDrawer({
             {table.status === 'occupied' && table.orders?.[0] && (
               <div className="flex items-center justify-between text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded">
                 <div>Order #{table.orders[0].orderNumber || table.orders[0].id.slice(-6)}</div>
-                <div>Since {new Date(table.orders[0].createdAt).toLocaleTimeString()}</div>
+                <div>Since {parseSupabaseTimestamp(table.orders[0].createdAt as any).toLocaleTimeString()}</div>
               </div>
             )}
           </div>

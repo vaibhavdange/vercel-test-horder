@@ -135,9 +135,11 @@ export default function DashboardPage() {
               </CardDescription>
               <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl text-lime-700">
                 {showCounters ? (
-                  <span>
-                    {format(analytics?.metrics.totalSales || 0)}
-                  </span>
+                  <AnimatedCounter 
+                    value={analytics?.metrics.totalSales || 0} 
+                    duration={3000}
+                    formatAsCurrency={true}
+                  />
                 ) : (
                   <span>{format(0)}</span>
                 )}
@@ -167,9 +169,11 @@ export default function DashboardPage() {
               <CardDescription>Average Order Value</CardDescription>
               <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl text-blue-700">
                 {showCounters ? (
-                  <span>
-                    {format(analytics?.metrics.averageOrderValue || 0)}
-                  </span>
+                  <AnimatedCounter 
+                    value={analytics?.metrics.averageOrderValue || 0} 
+                    duration={3000}
+                    formatAsCurrency={true}
+                  />
                 ) : (
                   <span>{format(0)}</span>
                 )}
@@ -292,9 +296,11 @@ export default function DashboardPage() {
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-900">
                       {showCounters ? (
-                        <span>
-                          {format(product.totalRevenue)}
-                        </span>
+                        <AnimatedCounter 
+                          value={product.totalRevenue} 
+                          duration={3000}
+                          formatAsCurrency={true}
+                        />
                       ) : (
                         <span>{format(0)}</span>
                       )}

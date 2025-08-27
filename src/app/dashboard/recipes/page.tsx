@@ -7,6 +7,7 @@ import { useProducts } from '@/hooks/use-products';
 import { useStockItems } from '@/hooks/use-ingredients';
 import { useHighlight } from '@/hooks/use-highlight';
 import { useCurrency } from '@/hooks/useCurrency';
+import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 
 export default function RecipesPage() {
   const [showAddRecipe, setShowAddRecipe] = useState(false);
@@ -166,8 +167,13 @@ export default function RecipesPage() {
 
   if (recipesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col h-full">
+        <div className="flex-1 p-6 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading recipes...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -669,6 +675,8 @@ export default function RecipesPage() {
           </div>
         )}
       </div>
+      
+      <DevelopmentNotice />
     </div>
   );
 }

@@ -61,7 +61,16 @@ export class SupabaseDatabase {
       const { data, error } = await query.order('name', { ascending: true });
 
       if (error) throw error;
-      return data;
+      
+      // Transform the data to match frontend expectations
+      const transformedData = data?.map((product: any) => ({
+        ...product,
+        category: product.categories,
+        // Remove the plural version to avoid confusion
+        categories: undefined
+      })) || [];
+      
+      return transformedData;
     } catch (error) {
       handleDatabaseError(error, 'fetch products');
     }
@@ -133,7 +142,15 @@ export class SupabaseDatabase {
         }
       }
 
-      return product;
+      // Transform the data to match frontend expectations
+      const transformedProduct = {
+        ...product,
+        category: product.categories,
+        // Remove the plural version to avoid confusion
+        categories: undefined
+      };
+      
+      return transformedProduct;
     } catch (error) {
       handleDatabaseError(error, 'create product');
     }
@@ -184,7 +201,16 @@ export class SupabaseDatabase {
         .single();
 
       if (error) throw error;
-      return data;
+      
+      // Transform the data to match frontend expectations
+      const transformedData = {
+        ...data,
+        category: data.categories,
+        // Remove the plural version to avoid confusion
+        categories: undefined
+      };
+      
+      return transformedData;
     } catch (error) {
       handleDatabaseError(error, 'update product');
     }
@@ -219,13 +245,14 @@ export class SupabaseDatabase {
     }
   }
 
-  async createCategory(categoryData: { name: string; icon?: string }) {
+  async createCategory(categoryData: { name: string; description?: string; icon?: string }) {
     try {
       const { data, error } = await this.client
         .from('categories')
         .insert({
           id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           name: categoryData.name,
+          description: categoryData.description || null,
           icon: categoryData.icon || '🍴',
           updatedAt: new Date().toISOString(),
         })
@@ -655,7 +682,7 @@ export class SupabaseDatabase {
             customerName,
             customerPhone,
             customerId,
-            orderItems (
+            order_items (
               id,
               productId,
               productName,
@@ -669,7 +696,18 @@ export class SupabaseDatabase {
         .order('tableNumber', { ascending: true });
 
       if (error) throw error;
-      return data;
+      
+      // Transform the data to match frontend expectations
+      const transformedData = data?.map((table: any) => ({
+        ...table,
+        area: table.areas,
+        floor: table.floors,
+        // Remove the plural versions to avoid confusion
+        areas: undefined,
+        floors: undefined
+      })) || [];
+      
+      return transformedData;
     } catch (error) {
       handleDatabaseError(error, 'fetch tables');
     }
@@ -701,7 +739,7 @@ export class SupabaseDatabase {
             customerName,
             customerPhone,
             customerId,
-            orderItems (
+            order_items (
               id,
               productId,
               productName,
@@ -715,7 +753,18 @@ export class SupabaseDatabase {
         .single();
 
       if (error) throw error;
-      return data;
+      
+      // Transform the data to match frontend expectations
+      const transformedData = {
+        ...data,
+        area: data.areas,
+        floor: data.floors,
+        // Remove the plural versions to avoid confusion
+        areas: undefined,
+        floors: undefined
+      };
+      
+      return transformedData;
     } catch (error) {
       handleDatabaseError(error, 'update table status');
     }
@@ -828,7 +877,7 @@ export class SupabaseDatabase {
   }
 
   // Analytics
-  async getAnalytics(dateFrom?: string, dateTo?: string) {
+  async getAnalytics(dateFrom?: string, dateTo?: string, period?: string) {
     try {
       let query = this.client
         .from('orders')
@@ -850,6 +899,14 @@ export class SupabaseDatabase {
       const totalSales = (orders || []).reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0);
       const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
+      // Get active tables count
+      const { data: activeTables, error: tablesError } = await this.client
+        .from('tables')
+        .select('id')
+        .eq('status', 'occupied');
+
+      const activeTablesCount = tablesError ? 0 : (activeTables?.length || 0);
+
       // Orders by status
       const statusToCount: Record<string, number> = {};
       for (const order of orders || []) {
@@ -858,7 +915,87 @@ export class SupabaseDatabase {
       }
       const ordersByStatus = Object.entries(statusToCount).map(([status, count]) => ({ status, count }));
 
-      // Build minimal chart data (group by date)
+      // Get popular products
+      const { data: orderItems, error: itemsError } = await this.client
+        .from('order_items')
+        .select(`
+          productId,
+          productName,
+          quantity,
+          unitPrice,
+          products (
+            id,
+            name,
+            image,
+            thumbnail,
+            categoryId
+          )
+        `);
+
+      const productStats: Record<string, any> = {};
+      if (!itemsError && orderItems) {
+        for (const item of orderItems) {
+          const productId = item.productId;
+          if (!productStats[productId]) {
+            productStats[productId] = {
+              productId,
+              productName: item.productName || (item.products as any)?.name || 'Unknown Product',
+              totalQuantity: 0,
+              totalRevenue: 0,
+              image: (item.products as any)?.image || null,
+              thumbnail: (item.products as any)?.thumbnail || null,
+              categoryId: (item.products as any)?.categoryId || null,
+            };
+          }
+          productStats[productId].totalQuantity += item.quantity || 0;
+          productStats[productId].totalRevenue += (item.quantity || 0) * (item.unitPrice || 0);
+        }
+      }
+
+      const popularProducts = Object.values(productStats)
+        .sort((a: any, b: any) => b.totalQuantity - a.totalQuantity)
+        .slice(0, 10);
+
+      // Get low stock products
+      const { data: productsForStock, error: stockError } = await this.client
+        .from('products')
+        .select(`
+          id,
+          name,
+          stockQuantity,
+          minStockLevel,
+          image,
+          thumbnail,
+          categoryId,
+          categories (
+            name
+          )
+        `);
+
+      const lowStockProducts = productsForStock?.filter((product: any) => 
+        (product.stockQuantity || 0) < (product.minStockLevel || 0)
+      ) || [];
+
+      const lowStockData = stockError ? [] : (lowStockProducts || []).map((product: any) => ({
+        id: product.id,
+        name: product.name,
+        currentStock: product.stockQuantity || 0,
+        minStockLevel: product.minStockLevel || 0,
+        category: product.categories?.name || 'Uncategorized',
+        image: product.image || null,
+        thumbnail: product.thumbnail || null,
+        categoryId: product.categoryId || null,
+      }));
+
+      // Get inventory totals
+      const { data: allProducts, error: productsError } = await this.client
+        .from('products')
+        .select('stockQuantity');
+
+      const totalProducts = productsError ? 0 : (allProducts?.length || 0);
+      const totalStock = productsError ? 0 : (allProducts || []).reduce((sum: number, product: any) => sum + (product.stockQuantity || 0), 0);
+
+      // Build chart data (group by date)
       const dateToSales: Record<string, number> = {};
       for (const order of orders || []) {
         const createdAt = order.createdAt ? new Date(order.createdAt) : null;
@@ -872,7 +1009,7 @@ export class SupabaseDatabase {
 
       // Return shape expected by the frontend
       return {
-        period: 'custom',
+        period: period || 'custom',
         dateRange: {
           start: dateFrom || '',
           end: dateTo || ''
@@ -883,14 +1020,14 @@ export class SupabaseDatabase {
           averageOrderValue,
           totalTax: 0,
           totalDiscount: 0,
-          activeTables: 0,
+          activeTables: activeTablesCount,
         },
         ordersByStatus,
-        popularProducts: [],
+        popularProducts,
         inventory: {
-          totalProducts: 0,
-          totalStock: 0,
-          lowStockProducts: [],
+          totalProducts,
+          totalStock,
+          lowStockProducts: lowStockData,
         },
         chartData: {
           dailySales,

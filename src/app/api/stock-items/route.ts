@@ -1,19 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseDb } from '@/lib/database/supabase';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const categoryId = searchParams.get('categoryId');
+    const search = searchParams.get('search');
+    const stockFilter = searchParams.get('stockFilter');
+
     const supabase = supabaseDb['client'];
-    const { data: stockItems, error } = await supabase
+    let query = supabase
       .from('stock_items')
       .select(`
         *,
         inventory_categories (*)
-      `)
-      .order('name', { ascending: true });
+      `);
+
+    // Apply category filter
+    if (categoryId) {
+      query = query.eq('categoryId', categoryId);
+    }
+
+    // Apply search filter
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+
+    // Apply stock status filter (except LowStock which needs special handling)
+    if (stockFilter && stockFilter !== 'LowStock') {
+      switch (stockFilter) {
+        case 'OutOfStock':
+          query = query.eq('stockQuantity', 0);
+          break;
+        case 'InStock':
+          query = query.gt('stockQuantity', 0);
+          break;
+      }
+    }
+
+    const { data: stockItems, error } = await query.order('name', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json(stockItems || []);
+
+    // Apply LowStock filter in JavaScript if needed
+    let filteredItems = stockItems || [];
+    if (stockFilter === 'LowStock') {
+      filteredItems = filteredItems.filter(item => 
+        item.stockQuantity > 0 && item.stockQuantity <= item.minStockLevel
+      );
+    }
+
+    return NextResponse.json(filteredItems);
   } catch (error) {
     console.error('Error fetching stock items:', error);
     return NextResponse.json(

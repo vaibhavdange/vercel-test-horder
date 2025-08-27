@@ -12,6 +12,7 @@ import { printBillFromOrder } from "@/lib/print/bill";
 import RefundDrawer from "@/components/ui/RefundDrawer";
 import { Order } from "@/types/orders";
 import { formatKOTNumber } from "@/lib/utils";
+import { parseSupabaseTimestamp } from "@/lib/time";
 import { useCurrency } from '@/hooks/useCurrency';
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -174,7 +175,7 @@ export default function OrdersPage() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseSupabaseTimestamp(dateString);
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear().toString().slice(-2);
@@ -182,7 +183,7 @@ export default function OrdersPage() {
   };
 
   const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseSupabaseTimestamp(dateString);
     return date.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
       minute: '2-digit',

@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { X, Globe } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useTables } from '@/hooks/useTables';
 import { CreateTableRequest, TableStatus } from '@/types/tables';
 import PaymentMethodsSettings from '@/components/settings/PaymentMethodsSettings';
+import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
+import TimezoneSettings from '@/components/ui/TimezoneSettings';
 
 export default function SettingsPage() {
   const {
@@ -19,6 +21,7 @@ export default function SettingsPage() {
 
   type SettingsTabKey = 'general' | 'tax' | 'tables' | 'data' | 'customers' | 'permissions' | 'print' | 'payments';
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('general');
+  const [showTimezoneSettings, setShowTimezoneSettings] = useState(false);
 
   type DayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
   interface DaySchedule { isOpen: boolean; openTime: string; closeTime: string }
@@ -254,13 +257,24 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-                    <input
-                      type="text"
-                      value={general.timezone}
-                      onChange={(e) => setGeneral({ ...general, timezone: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="e.g., Asia/Dubai"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={general.timezone}
+                        onChange={(e) => setGeneral({ ...general, timezone: e.target.value })}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="e.g., Asia/Dubai"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowTimezoneSettings(true)}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        title="Configure regional timezone settings"
+                      >
+                        <Globe className="w-4 h-4" />
+                        <span className="hidden sm:inline">Regional</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -534,6 +548,13 @@ export default function SettingsPage() {
         {activeTab === 'tables' && showAddTable && (
           <TableModal floors={floors} areas={areas} onClose={() => setShowAddTable(false)} onSubmit={handleCreateTable} />
         )}
+        {/* Timezone Settings Modal */}
+        <TimezoneSettings 
+          isOpen={showTimezoneSettings} 
+          onClose={() => setShowTimezoneSettings(false)} 
+        />
+
+        <DevelopmentNotice />
       </div>
     </div>
   );

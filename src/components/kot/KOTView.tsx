@@ -19,6 +19,7 @@ import {
   ChefHat
 } from 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
+import { parseSupabaseTimestamp } from '@/lib/time';
 
 // Define RestaurantOrder type locally since it's not exported from the store
 interface RestaurantOrder {
@@ -138,9 +139,10 @@ export default function KOTView({ isOpen, onClose }: KOTViewProps) {
     }
   };
 
-  const getTimeElapsed = (createdAt: Date) => {
+  const getTimeElapsed = (createdAt: Date | string) => {
+    const start = createdAt instanceof Date ? createdAt : parseSupabaseTimestamp(createdAt);
     const now = new Date();
-    const diff = now.getTime() - createdAt.getTime();
+    const diff = now.getTime() - start.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
     
@@ -280,7 +282,7 @@ export default function KOTView({ isOpen, onClose }: KOTViewProps) {
               <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
                 <div className="flex items-center space-x-1">
                   <Clock className="h-4 w-4" />
-                  <span>{getTimeElapsed(new Date(order.createdAt))}</span>
+                  <span>{getTimeElapsed(order.createdAt)}</span>
                 </div>
                 <span className="font-medium text-gray-900">
                   {format(order.total)}

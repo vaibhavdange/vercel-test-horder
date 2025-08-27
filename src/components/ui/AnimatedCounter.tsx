@@ -9,6 +9,7 @@ interface AnimatedCounterProps {
   prefix?: string;
   suffix?: string;
   className?: string;
+  formatAsCurrency?: boolean;
 }
 
 export default function AnimatedCounter({
@@ -17,7 +18,8 @@ export default function AnimatedCounter({
   decimals = 0,
   prefix = '',
   suffix = '',
-  className = ''
+  className = '',
+  formatAsCurrency = false
 }: AnimatedCounterProps) {
   const [displayValue, setDisplayValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -71,6 +73,14 @@ export default function AnimatedCounter({
   }, [value, duration, decimals]);
 
   const formatValue = (val: number) => {
+    if (formatAsCurrency) {
+      return new Intl.NumberFormat('en-IN', { 
+        style: 'currency', 
+        currency: 'INR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(val);
+    }
     if (decimals === 0) return Math.round(val).toLocaleString();
     return val.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };

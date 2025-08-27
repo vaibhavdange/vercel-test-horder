@@ -36,7 +36,7 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { name, icon } = body;
+    const { name, description, icon } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -50,6 +50,7 @@ export async function PUT(
       .from('categories')
       .update({
         name,
+        description: description || null,
         icon: icon || '🍴',
         updatedAt: new Date().toISOString(),
       })

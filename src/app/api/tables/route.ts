@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
           customerName,
           customerPhone,
           customerId,
-          orderItems (
+          order_items (
             id,
             productId,
             productName,
@@ -71,7 +71,18 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
-    return NextResponse.json(table, { status: 201 });
+    
+    // Transform the data to match frontend expectations
+    const transformedTable = {
+      ...table,
+      area: table.areas,
+      floor: table.floors,
+      // Remove the plural versions to avoid confusion
+      areas: undefined,
+      floors: undefined
+    };
+    
+    return NextResponse.json(transformedTable, { status: 201 });
   } catch (error) {
     console.error('Error creating table:', error);
     return NextResponse.json(
@@ -118,7 +129,7 @@ export async function PATCH(request: NextRequest) {
           customerName,
           customerPhone,
           customerId,
-          orderItems (
+          order_items (
             id,
             productId,
             productName,
@@ -132,7 +143,18 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) throw error;
-    return NextResponse.json(table);
+    
+    // Transform the data to match frontend expectations
+    const transformedTable = {
+      ...table,
+      area: table.areas,
+      floor: table.floors,
+      // Remove the plural versions to avoid confusion
+      areas: undefined,
+      floors: undefined
+    };
+    
+    return NextResponse.json(transformedTable);
   } catch (error) {
     console.error('Error updating table status:', error);
     return NextResponse.json(

@@ -4,47 +4,84 @@ import { supabaseDb } from '@/lib/database/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { products } = body;
+    const { action, productIds, data } = body;
 
-    if (!products || !Array.isArray(products)) {
+    if (!action || !productIds || !Array.isArray(productIds)) {
       return NextResponse.json(
-        { error: 'Products array is required' },
+        { error: 'Action and productIds array are required' },
         { status: 400 }
       );
     }
 
     const supabase = supabaseDb['client'];
-    const { data: createdProducts, error } = await supabase
-      .from('products')
-      .insert(products.map(product => ({
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        cost: product.cost,
-        stock_quantity: product.stockQuantity || 0,
-        min_stock_level: product.minStockLevel || 0,
-        category_id: product.categoryId,
-        barcode: product.barcode,
-        tax_rate: product.taxRate || 0.0,
-        image: product.image,
-        thumbnail: product.thumbnail,
-        is_active: true,
-      })))
-      .select(`
-        *,
-        categories (
-          id,
-          name,
-          icon
-        )
-      `);
+    let affectedCount = 0;
 
-    if (error) throw error;
-    return NextResponse.json(createdProducts, { status: 201 });
+    switch (action) {
+      case 'delete':
+        const { error: deleteError } = await supabase
+          .from('products')
+          .delete()
+          .in('id', productIds);
+        
+        if (deleteError) throw deleteError;
+        affectedCount = productIds.length;
+        break;
+
+      case 'updateStatus':
+        const { error: statusError } = await supabase
+          .from('products')
+          .update({ 
+            isActive: data.isActive,
+            updatedAt: new Date().toISOString()
+          })
+          .in('id', productIds);
+        
+        if (statusError) throw statusError;
+        affectedCount = productIds.length;
+        break;
+
+      case 'updateCategory':
+        const { error: categoryError } = await supabase
+          .from('products')
+          .update({ 
+            categoryId: data.categoryId,
+            updatedAt: new Date().toISOString()
+          })
+          .in('id', productIds);
+        
+        if (categoryError) throw categoryError;
+        affectedCount = productIds.length;
+        break;
+
+      case 'updateStock':
+        const { error: stockError } = await supabase
+          .from('products')
+          .update({ 
+            stockQuantity: data.stockQuantity,
+            updatedAt: new Date().toISOString()
+          })
+          .in('id', productIds);
+        
+        if (stockError) throw stockError;
+        affectedCount = productIds.length;
+        break;
+
+      default:
+        return NextResponse.json(
+          { error: 'Invalid action' },
+          { status: 400 }
+        );
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Bulk ${action} completed successfully`,
+      affectedCount 
+    });
   } catch (error) {
-    console.error('Error creating bulk products:', error);
+    console.error('Error performing bulk action:', error);
     return NextResponse.json(
-      { error: 'Failed to create bulk products' },
+      { error: 'Failed to perform bulk action' },
       { status: 500 }
     );
   }

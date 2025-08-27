@@ -18,7 +18,7 @@ export default function InventoryPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [stockFilter, setStockFilter] = useState("All");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items');
 
   // Form state
   const [stockItemForm, setStockItemForm] = useState<CreateStockItemData>({
@@ -36,8 +36,6 @@ export default function InventoryPage() {
   const [categoryForm, setCategoryForm] = useState<CreateInventoryCategoryData>({
     name: "",
     description: "",
-    icon: "📦",
-    color: "#3B82F6",
   });
 
   // Hooks
@@ -110,8 +108,6 @@ export default function InventoryPage() {
       setCategoryForm({
         name: "",
         description: "",
-        icon: "📦",
-        color: "#3B82F6",
       });
       setShowAddCategory(false);
       setShowEditCategory(false);
@@ -141,8 +137,6 @@ export default function InventoryPage() {
     setCategoryForm({
       name: category.name,
       description: category.description || "",
-      icon: category.icon,
-      color: category.color,
     });
     setShowEditCategory(true);
   };
@@ -206,54 +200,132 @@ export default function InventoryPage() {
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {filteredStockItems.length} Total Stock Items
-          </h1>
-          <div className="flex items-center space-x-3">
-            {/* View Toggle */}
+          <div className="flex items-center space-x-4">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {activeTab === 'items' ? `${filteredStockItems.length} Total Stock Items` : `${categories?.length || 0} Categories`}
+            </h1>
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === 'grid'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                title="Grid View"
+                onClick={() => setActiveTab('items')}
+                className={`px-3 py-1 rounded-md text-sm transition-colors ${activeTab === 'items' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
               >
-                <Grid3X3 className="h-4 w-4" />
+                Items
               </button>
               <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === 'list'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                title="List View"
+                onClick={() => setActiveTab('categories')}
+                className={`px-3 py-1 rounded-md text-sm transition-colors ${activeTab === 'categories' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
               >
-                <List className="h-4 w-4" />
+                Categories
               </button>
             </div>
-            
-            <button
-              onClick={() => setShowAddCategory(true)}
-              className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors duration-200 flex items-center space-x-2"
-            >
-              <FolderPlus className="h-4 w-4" />
-              <span>Add Category</span>
-            </button>
-            
-            <button
-              onClick={() => setShowAddStockItem(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Stock Item</span>
-            </button>
+          </div>
+          <div className="flex items-center space-x-3">
+            {activeTab === 'items' ? (
+              <>
+                {/* View Toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-md transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="Grid View"
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-md transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="List View"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowAddStockItem(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Stock Item</span>
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowAddCategory(true)}
+                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors duration-200 flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Category</span>
+              </button>
+            )}
           </div>
         </div>
         
+        {/* Content by Tab */}
+        {activeTab === 'items' ? null : (
+          <div className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {(categories || []).map((category) => (
+                    <tr key={category.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{category.name}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{category.description || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{category.stockItems?.length || 0}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEditCategory(category)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Edit category"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(category.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete category"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!categories || categories.length === 0) && (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-gray-600">
+                        No categories yet. Click "Add Category" to create one.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'items' && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Filters Section */}
           <div className="lg:col-span-1">
@@ -516,6 +588,7 @@ export default function InventoryPage() {
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* Add/Edit Stock Item Modal */}
@@ -562,13 +635,14 @@ export default function InventoryPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">UPC</label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={stockItemForm.description}
-                  onChange={(e) => setStockItemForm({ ...stockItemForm, description: e.target.value })}
+                  onChange={(e) => setStockItemForm({ ...stockItemForm, description: e.target.value.replace(/\s+/g, '') })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="e.g., All-purpose flour, Fresh Roma tomatoes"
+                  placeholder="e.g., 012345678905"
                 />
               </div>
               
@@ -703,7 +777,7 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* Add/Edit Category Modal */}
+      {/* Add/Edit Category Modal (no icon/color) */}
       {(showAddCategory || showEditCategory) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -719,8 +793,6 @@ export default function InventoryPage() {
                   setCategoryForm({
                     name: "",
                     description: "",
-                    icon: "📦",
-                    color: "#3B82F6",
                   });
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -730,27 +802,6 @@ export default function InventoryPage() {
             </div>
             
             <form onSubmit={handleSubmitCategory} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category Icon</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="w-full h-12 border border-gray-300 rounded-lg flex items-center justify-center text-2xl hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    {categoryForm.icon}
-                  </button>
-                  
-                  {/* Emoji Input */}
-                  <input
-                    type="text"
-                    placeholder="📦"
-                    value={categoryForm.icon}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, icon: e.target.value })}
-                    className="w-full h-12 border border-gray-300 rounded-lg text-center text-2xl"
-                  />
-                </div>
-              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
@@ -772,16 +823,6 @@ export default function InventoryPage() {
                   value={categoryForm.description}
                   onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                <input
-                  type="color"
-                  value={categoryForm.color}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
-                  className="w-full h-12 border border-gray-300 rounded-lg cursor-pointer"
                 />
               </div>
             
@@ -798,6 +839,21 @@ export default function InventoryPage() {
                   )}
                   <span>{editingCategory ? 'Update' : 'Create'}</span>
                 </button>
+                
+                {editingCategory && (
+                  <button 
+                    type="button"
+                    onClick={() => handleDeleteCategory(editingCategory.id)}
+                    disabled={deleteCategory.isPending}
+                    className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <Trash2 className="h-4 w-4" />
+                      <span>{deleteCategory.isPending ? "Deleting..." : "Delete"}</span>
+                    </div>
+                  </button>
+                )}
+                
                 <button
                   type="button"
                   onClick={() => {
@@ -807,8 +863,6 @@ export default function InventoryPage() {
                     setCategoryForm({
                       name: "",
                       description: "",
-                      icon: "📦",
-                      color: "#3B82F6",
                     });
                   }}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
@@ -817,104 +871,6 @@ export default function InventoryPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Category Modal with Delete Option */}
-      {showEditCategory && editingCategory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Category</h3>
-              <button
-                onClick={() => {
-                  setShowEditCategory(false);
-                  setEditingCategory(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category Icon</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="w-full h-12 border border-gray-300 rounded-lg flex items-center justify-center text-2xl hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    {editingCategory.icon}
-                  </button>
-                  
-                  {/* Emoji Input for Edit */}
-                  <input
-                    type="text"
-                    placeholder="📦"
-                    value={categoryForm.icon}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, icon: e.target.value })}
-                    className="w-full h-12 border border-gray-300 rounded-lg text-center text-2xl"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
-                <input
-                  type="text"
-                  value={categoryForm.name}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                  placeholder="e.g., Dairy, Produce, Pantry"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  placeholder="Write your category description here"
-                  rows={3}
-                  value={categoryForm.description}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                <input
-                  type="color"
-                  value={categoryForm.color}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
-                  className="w-full h-12 border border-gray-300 rounded-lg cursor-pointer"
-                />
-              </div>
-            </div>
-            
-            <div className="flex space-x-3 mt-8">
-              <button 
-                onClick={handleSubmitCategory}
-                disabled={!categoryForm.name || updateCategory.isPending}
-                className="flex-1 px-4 py-2 bg-violet-600 text-white font-medium rounded-lg hover:bg-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-              >
-                {updateCategory.isPending ? "Updating..." : "Save Changes"}
-              </button>
-              
-              <button 
-                onClick={() => handleDeleteCategory(editingCategory.id)}
-                disabled={deleteCategory.isPending}
-                className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <Trash2 className="h-4 w-4" />
-                  <span>{deleteCategory.isPending ? "Deleting..." : "Delete Category"}</span>
-                </div>
-              </button>
-            </div>
           </div>
         </div>
       )}

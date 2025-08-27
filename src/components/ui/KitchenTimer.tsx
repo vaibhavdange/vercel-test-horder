@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { parseSupabaseTimestamp } from "@/lib/time";
 
 interface KitchenTimerProps {
   createdAt: string;
@@ -22,8 +23,8 @@ export default function KitchenTimer({ createdAt, startedCookingAt, readyAt, sta
   }, []);
 
   const formatDuration = (startTime: string, endTime?: string) => {
-    const start = new Date(startTime);
-    const end = endTime ? new Date(endTime) : currentTime;
+    const start = parseSupabaseTimestamp(startTime);
+    const end = endTime ? parseSupabaseTimestamp(endTime) : currentTime;
     const diffMs = end.getTime() - start.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     

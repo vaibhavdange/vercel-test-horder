@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useCurrency } from "@/hooks/useCurrency";
+import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 
 export default function ReportsPage() {
   const [reportType, setReportType] = useState<ReportFilters['type']>('sales');
@@ -187,6 +188,7 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+      <DevelopmentNotice />
     </div>
   );
 }

@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, Calendar, Wrench, Users, MoreVertical, Edit, Trash2, CheckCircle, XCircle, Clock, MapPin, CreditCard, PlusCircle } from 'lucide-react';
+import { Eye, Calendar, Wrench, Users, MoreVertical, Edit, Trash2, CheckCircle, XCircle, Clock, MapPin, CreditCard, PlusCircle, AlertCircle } from 'lucide-react';
 import { Table, TableStatus } from '@/types/tables';
+import { parseSupabaseTimestamp, formatHms } from '@/lib/time';
 import { useCurrency } from '@/hooks/useCurrency';
 
 interface TableCardProps {
@@ -207,8 +208,11 @@ export function TableCard({
           </div>
 
           {/* Optional: Elapsed Time for Occupied Tables */}
-          {table.status === 'occupied' && (
-            <OccupiedTimer createdAt={table.orders?.[0]?.createdAt as any} />
+          {table.status === 'occupied' && table.orders?.[0] && (
+            <OccupiedTimer 
+              createdAt={table.orders?.[0]?.createdAt as any} 
+              status={table.orders?.[0]?.status as any}
+            />
           )}
         </div>
 
@@ -392,29 +396,80 @@ export function TableCard({
   );
 }
 
-function OccupiedTimer({ createdAt }: { createdAt?: string | Date }) {
-  const [elapsed, setElapsed] = React.useState<string>('');
+function OccupiedTimer({ createdAt, status }: { createdAt?: string | Date; status?: string }) {
+  const [currentTime, setCurrentTime] = React.useState(new Date());
+
   useEffect(() => {
-    const start = createdAt ? new Date(createdAt).getTime() : Date.now();
-    const format = (ms: number) => {
-      const totalSeconds = Math.floor(ms / 1000);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
-      const hh = hours > 0 ? `${hours}:` : '';
-      const mm = hours > 0 ? String(minutes).padStart(2, '0') : String(minutes);
-      const ss = String(seconds).padStart(2, '0');
-      return `${hh}${mm}:${ss}`;
-    };
-    const tick = () => setElapsed(format(Date.now() - start));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [createdAt]);
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatDuration = (startTime: string, endTime?: string) => {
+    const start = parseSupabaseTimestamp(startTime);
+    const end = endTime ? parseSupabaseTimestamp(endTime) : currentTime;
+    const diffMs = end.getTime() - start.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMins < 60) {
+      return `${diffMins}m`;
+    } else {
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      return `${hours}h ${mins}m`;
+    }
+  };
+
+  const getTimerInfo = () => {
+    switch (status) {
+      case "pending":
+        return {
+          icon: <Clock className="w-3 h-3 text-yellow-500" />,
+          text: formatDuration(createdAt as string),
+          color: "text-yellow-600"
+        };
+      case "in-process":
+        return {
+          icon: <Clock className="w-3 h-3 text-orange-500" />,
+          text: formatDuration(createdAt as string),
+          color: "text-orange-600"
+        };
+      case "ready":
+        return {
+          icon: <CheckCircle className="w-3 h-3 text-green-500" />,
+          text: "Ready",
+          color: "text-green-600"
+        };
+      case "completed":
+        return {
+          icon: <CheckCircle className="w-3 h-3 text-green-500" />,
+          text: "Completed",
+          color: "text-green-600"
+        };
+      case "cancelled":
+        return {
+          icon: <AlertCircle className="w-3 h-3 text-red-500" />,
+          text: "Cancelled",
+          color: "text-red-600"
+        };
+      default:
+        return {
+          icon: <Clock className="w-3 h-3 text-blue-500" />,
+          text: formatDuration(createdAt as string),
+          color: "text-blue-600"
+        };
+    }
+  };
+
+  const timerInfo = getTimerInfo();
+
   return (
-    <div className="flex items-center gap-2 text-xs text-blue-600">
-      <Clock className="w-3 h-3" />
-      <span>{elapsed || '00:00'}</span>
+    <div className="flex items-center gap-2 text-xs">
+      {timerInfo.icon}
+      <span className={`font-medium ${timerInfo.color}`}>
+        {timerInfo.text}
+      </span>
     </div>
   );
 }

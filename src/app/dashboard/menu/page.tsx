@@ -10,6 +10,7 @@ import { Category } from "@/types/category";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import ExtrasEditor from "@/components/menu/ExtrasEditor";
 import { OptimizedImage } from "@/components/ui/OptimizedImage";
+import { EmojiPicker } from "@/components/ui/EmojiPicker";
 
 import { useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/use-categories";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -427,7 +428,15 @@ export default function MenuPage() {
 
   const openBulkActionModal = (action: string) => {
     setBulkAction(action);
-    setBulkActionData({});
+    if (action === 'updateStatus') {
+      setBulkActionData({ isActive: true });
+    } else if (action === 'updateCategory') {
+      setBulkActionData({ categoryId: "" });
+    } else if (action === 'updateStock') {
+      setBulkActionData({ stockQuantity: 0 });
+    } else {
+      setBulkActionData({});
+    }
     setShowBulkActionModal(true);
   };
 
@@ -482,7 +491,7 @@ export default function MenuPage() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Categories</h2>
             <button
-              onClick={() => setShowAddCategory(true)}
+              onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", icon: "🍴" }); setShowEmojiPicker(false); setShowEmojiPickerEdit(false); setShowAddCategory(true); }}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
@@ -537,7 +546,7 @@ export default function MenuPage() {
               {activeCategory === "All" ? "All Menu Items" : `Items in ${categories.find(c => c.id === activeCategory)?.name || 'Category'}`}
             </h2>
             <button 
-              onClick={() => setShowAddProduct(true)}
+              onClick={() => { setSelectedProduct(null); setProductForm({ name: "", description: "", price: "", cost: "", stockQuantity: "", minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", extras: [] }); setShowAddProduct(true); }}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
@@ -660,19 +669,7 @@ export default function MenuPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center space-x-3">
-                        <div 
-                          className="cursor-pointer hover:bg-gray-300 transition-colors duration-200"
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setProductForm({
-                              ...productForm,
-                              image: product.image || "",
-                              thumbnail: product.thumbnail || ""
-                            });
-                            setShowEditProduct(true);
-                          }}
-                          title="Click to edit image"
-                        >
+                        <div>
                           <OptimizedImage
                             src={product.thumbnail || product.image || ''}
                             alt={product.name}
@@ -768,14 +765,17 @@ export default function MenuPage() {
                     {categoryForm.icon}
                   </button>
                   
-                  {/* Emoji Input */}
-                  <input
-                    type="text"
-                    placeholder="🍴"
-                    value={categoryForm.icon}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, icon: e.target.value })}
-                    className="w-full h-12 border border-gray-300 rounded-lg text-center text-2xl"
-                  />
+                  {/* Emoji Picker */}
+                  {showEmojiPicker && (
+                    <div className="emoji-picker-container">
+                      <EmojiPicker
+                        value={categoryForm.icon}
+                        onChange={(emoji) => setCategoryForm({ ...categoryForm, icon: emoji })}
+                        onClose={() => setShowEmojiPicker(false)}
+                        className="top-full left-0 mt-1"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -847,14 +847,17 @@ export default function MenuPage() {
                     {categoryForm.icon}
                   </button>
                   
-                  {/* Emoji Input for Edit */}
-                  <input
-                    type="text"
-                    placeholder="🍴"
-                    value={categoryForm.icon}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, icon: e.target.value })}
-                    className="w-full h-12 border border-gray-300 rounded-lg text-center text-2xl"
-                  />
+                  {/* Emoji Picker for Edit */}
+                  {showEmojiPickerEdit && (
+                    <div className="emoji-picker-container">
+                      <EmojiPicker
+                        value={categoryForm.icon}
+                        onChange={(emoji) => setCategoryForm({ ...categoryForm, icon: emoji })}
+                        onClose={() => setShowEmojiPickerEdit(false)}
+                        className="top-full left-0 mt-1"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               

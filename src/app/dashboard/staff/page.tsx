@@ -6,6 +6,7 @@ import { useStaff, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hook
 import { useAttendance, useCreateAttendance, useUpdateAttendance, useDeleteAttendance, useBulkCreateAttendance } from "@/hooks/use-attendance";
 import { useCategories } from "@/hooks/use-categories";
 import { Staff, CreateStaffData, UpdateStaffData, StaffAttendance, CreateAttendanceData } from "@/types/staff";
+import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 
 export default function StaffPage() {
   const [activeTab, setActiveTab] = useState("Staff Management");
@@ -999,6 +1000,8 @@ export default function StaffPage() {
           </div>
         </div>
       )}
+      
+      <DevelopmentNotice />
     </div>
   );
 }
