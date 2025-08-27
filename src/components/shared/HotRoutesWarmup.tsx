@@ -49,51 +49,52 @@ export default function HotRoutesWarmup() {
       return () => { cancelled = true; };
     }
 
-    // Prefetch route code only (no API calls) to avoid triggering server functions
+    // Prefetch critical routes with small staggering
     const cancelA = schedule(() => {
       ['/dashboard/new-order', '/dashboard/orders', '/dashboard/tables']
         .forEach((path) => router.prefetch(path));
     }, 200);
 
-    // In production, skip warming API datasets that may rely on server-only DB
-    const cancelB = process.env.NODE_ENV === 'production'
-      ? undefined
-      : schedule(async () => {
-          try {
-            await Promise.allSettled([
-              queryClient.prefetchQuery({
-                queryKey: ['categories'],
-                queryFn: async () => (await fetch('/api/categories')).json(),
-                staleTime: 30_000,
-              }),
-              queryClient.prefetchQuery({
-                queryKey: ['products'],
-                queryFn: async () => (await fetch('/api/products')).json(),
-                staleTime: 30_000,
-              }),
-              queryClient.prefetchQuery({
-                queryKey: ['tables'],
-                queryFn: TablesService.getTables,
-                staleTime: 15_000,
-              }),
-              queryClient.prefetchQuery({
-                queryKey: ['floors'],
-                queryFn: TablesService.getFloors,
-                staleTime: 30_000,
-              }),
-              queryClient.prefetchQuery({
-                queryKey: ['areas'],
-                queryFn: TablesService.getAreas,
-                staleTime: 30_000,
-              }),
-              queryClient.prefetchQuery({
-                queryKey: ['orders', undefined],
-                queryFn: async () => (await fetch('/api/orders')).json(),
-                staleTime: 10_000,
-              }),
-            ]);
-          } catch {}
-        }, 600);
+    // Warm core datasets used by hot pages
+    const cancelB = schedule(async () => {
+      try {
+        await Promise.allSettled([
+          // New Order: categories, a baseline products list, tables
+          queryClient.prefetchQuery({
+            queryKey: ['categories'],
+            queryFn: async () => (await fetch('/api/categories')).json(),
+            staleTime: 30_000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ['products'],
+            queryFn: async () => (await fetch('/api/products')).json(),
+            staleTime: 30_000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ['tables'],
+            queryFn: TablesService.getTables,
+            staleTime: 15_000,
+          }),
+          // Tables page: floors and areas
+          queryClient.prefetchQuery({
+            queryKey: ['floors'],
+            queryFn: TablesService.getFloors,
+            staleTime: 30_000,
+          }),
+          queryClient.prefetchQuery({
+            queryKey: ['areas'],
+            queryFn: TablesService.getAreas,
+            staleTime: 30_000,
+          }),
+          // Orders page: default list
+          queryClient.prefetchQuery({
+            queryKey: ['orders', undefined],
+            queryFn: async () => (await fetch('/api/orders')).json(),
+            staleTime: 10_000,
+          }),
+        ]);
+      } catch {}
+    }, 600);
 
     return () => {
       cancelled = true;

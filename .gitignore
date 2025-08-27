@@ -100,6 +100,7 @@ jspm_packages/
 *.temp
 temp_scripts.json
 test-*.js
+run.ts
 
 # OS generated files
 .DS_Store
