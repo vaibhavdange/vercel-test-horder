@@ -40,7 +40,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState(false);
-  const [isOrderSummaryCollapsed, setIsOrderSummaryCollapsed] = useState<boolean>(false);
+  const [isOrderSummaryCollapsed, setIsOrderSummaryCollapsed] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success">("idle");
   const [completedTransaction, setCompletedTransaction] = useState<any>(null);

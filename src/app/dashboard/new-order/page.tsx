@@ -894,11 +894,13 @@ export default function NewOrderPage() {
   // Apply search filter across ALL items regardless of category
   const searchFilteredItems = searchQuery.trim() 
     ? sortByPopularity(allProducts.filter(item => 
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        categories.find(cat => cat.id === item.categoryId)?.name.toLowerCase().includes(searchQuery.toLowerCase())
+        categories.find(cat => cat.id === item.categoryId)?.name.toLowerCase().includes(searchQuery.toLowerCase())) &&
+        // Hide out of stock items
+        (item.stockQuantity || 0) > 0
       ))
-    : filteredItems;
+    : filteredItems.filter(item => (item.stockQuantity || 0) > 0);
 
   // Auto-navigate to category when searching for items
   useEffect(() => {
