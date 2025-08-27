@@ -1,28 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
-
-export async function POST(request: NextRequest) {
-  try {
-    const data = await request.json();
-    await prisma.$transaction(async (tx) => {
-      await tx.setting.upsert({ where: { key: 'general' }, update: { value: JSON.stringify(data) }, create: { key: 'general', value: JSON.stringify(data) } });
-      if (data?.currency) {
-        await tx.setting.upsert({ where: { key: 'currency' }, update: { value: String(data.currency) }, create: { key: 'currency', value: String(data.currency) } });
-      }
-    });
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to save general settings' }, { status: 500 });
-  }
-}
+import { supabaseDb } from '@/lib/database/supabase';
 
 export async function GET() {
   try {
-    const row = await prisma.setting.findUnique({ where: { key: 'general' } });
-    const json = row ? JSON.parse(row.value) : {};
-    return NextResponse.json(json);
+    const settings = await supabaseDb.getSettings();
+    return NextResponse.json(settings);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to load general settings' }, { status: 500 });
+    console.error('Error fetching general settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch general settings' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const settings = await supabaseDb.updateSettings(body);
+    return NextResponse.json(settings);
+  } catch (error) {
+    console.error('Error updating general settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to update general settings' },
+      { status: 500 }
+    );
   }
 }
 

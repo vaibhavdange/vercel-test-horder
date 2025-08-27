@@ -1,61 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const productId = searchParams.get('productId');
-    const search = searchParams.get('search');
+    const supabase = supabaseDb['client'];
+    const { data: recipes, error } = await supabase
+      .from('recipes')
+      .select(`
+        *,
+        products (*),
+        recipe_items (
+          *,
+          ingredients (*)
+        )
+      `)
+      .order('name', { ascending: true });
 
-    const where: any = {};
-
-    if (productId) {
-      where.productId = productId;
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } }
-      ];
-    }
-
-    const recipes = await prisma.recipe.findMany({
-      where,
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            category: {
-              select: {
-                name: true,
-                icon: true
-              }
-            }
-          }
-        },
-        items: {
-          include: {
-            stockItem: {
-              select: {
-                id: true,
-                name: true,
-                unit: true,
-                stockQuantity: true,
-                minStockLevel: true,
-                costPerUnit: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-
-    return NextResponse.json(recipes);
+    if (error) throw error;
+    return NextResponse.json(recipes || []);
   } catch (error) {
     console.error('Error fetching recipes:', error);
     return NextResponse.json(
@@ -70,38 +32,49 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, productId, servings, items } = body;
 
-    if (!name || !productId || !items || items.length === 0) {
+    if (!name || !productId) {
       return NextResponse.json(
-        { error: 'Name, productId, and items are required' },
+        { error: 'Name and product ID are required' },
         { status: 400 }
       );
     }
 
-    // Create recipe with items
-    const recipe = await prisma.recipe.create({
-      data: {
+    const supabase = supabaseDb['client'];
+    const { data: recipe, error } = await supabase
+      .from('recipes')
+      .insert({
+        id: `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name,
         description,
-        productId,
+        productId: productId,
         servings: servings || 1,
-        items: {
-          create: items.map((item: any) => ({
-            stockItemId: item.stockItemId,
-            quantity: item.quantity,
-            unit: item.unit,
-            notes: item.notes
-          }))
-        }
-      },
-      include: {
-        product: true,
-        items: {
-          include: {
-            stockItem: true
-          }
-        }
+        isActive: true,
+        updatedAt: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Create recipe items if provided
+    if (items && Array.isArray(items) && items.length > 0) {
+      const recipeItems = items.map(item => ({
+        id: `recipe_item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        recipeId: recipe.id,
+        stockItemId: item.ingredientId, // ingredientId maps to stockItemId
+        quantity: item.quantity,
+        unit: item.unit,
+        notes: item.notes || null,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('recipe_items')
+        .insert(recipeItems);
+
+      if (itemsError) {
+        console.error('Failed to create recipe items:', itemsError);
       }
-    });
+    }
 
     return NextResponse.json(recipe, { status: 201 });
   } catch (error) {

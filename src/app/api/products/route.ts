@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 import { eventBus } from '@/lib/services/event-bus';
 
 export async function GET(request: NextRequest) {
@@ -8,32 +8,10 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get('categoryId');
     const search = searchParams.get('search');
 
-    const products = await prisma.product.findMany({
-      where: {
-        AND: [
-          categoryId ? { categoryId: categoryId } : {},
-          search ? {
-            OR: [
-              { name: { contains: search } },
-              { description: { contains: search } },
-            ],
-          } : {},
-          { isActive: true }
-        ],
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-          },
-        },
-        extras: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
+    const products = await supabaseDb.getProducts({
+      categoryId: categoryId || undefined,
+      search: search || undefined,
+      isActive: true,
     });
 
     return NextResponse.json(products);
@@ -58,38 +36,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price: parseFloat(price),
-        cost: cost ? parseFloat(cost) : undefined,
-        stockQuantity: stockQuantity || 0,
-        minStockLevel: minStockLevel || 0,
-        categoryId,
-        barcode,
-        taxRate: taxRate || 0.0,
-        image,
-        thumbnail,
-        extras: extras && Array.isArray(extras) ? {
-          create: extras.map((e: any) => ({
-            name: e.name,
-            price: parseFloat(e.price || 0),
-            stockItemId: e.stockItemId || null,
-            isActive: true,
-          }))
-        } : undefined,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-          },
-        },
-        extras: true,
-      },
+    const product = await supabaseDb.createProduct({
+      name,
+      description,
+      price: parseFloat(price),
+      cost: cost ? parseFloat(cost) : undefined,
+      stockQuantity: stockQuantity || 0,
+      minStockLevel: minStockLevel || 0,
+      categoryId,
+      barcode,
+      taxRate: taxRate || 0.0,
+      image,
+      thumbnail,
+      extras: extras && Array.isArray(extras) ? extras.map((e: any) => ({
+        name: e.name,
+        price: parseFloat(e.price || 0),
+        stockItemId: e.stockItemId || null,
+      })) : undefined,
     });
 
     // Emit real-time event for product creation

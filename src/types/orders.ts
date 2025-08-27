@@ -70,7 +70,7 @@ export interface Order {
   readyAt?: string;
   updatedAt: string;
   customer?: Customer;
-  orderItems: OrderItem[];
+  orderItems?: OrderItem[];
 }
 
 export interface CreateOrderData {
@@ -91,7 +91,7 @@ export interface CreateOrderData {
   paymentStatus?: "pending" | "paid" | "refunded";
   paymentMethod?: string;
   notes?: string;
-  orderItems: CreateOrderItemData[];
+  orderItems?: CreateOrderItemData[];
 }
 
 export interface CreateOrderItemData {

@@ -1,57 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
-import { UpdateInventoryCategoryData } from '@/types/menu';
+import { supabaseDb } from '@/lib/database/supabase';
 
-// PUT /api/inventory-categories/[id] - Update an inventory category
-export async function PUT(
+export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const data: UpdateInventoryCategoryData = await request.json();
+    const supabase = supabaseDb['client'];
+    const { data: category, error } = await supabase
+      .from('inventory_categories')
+      .select('*')
+      .eq('id', params.id)
+      .single();
 
-    // Check if category exists
-    const existingCategory = await prisma.inventoryCategory.findUnique({
-      where: { id },
-    });
-
-    if (!existingCategory) {
+    if (error || !category) {
       return NextResponse.json(
         { error: 'Inventory category not found' },
         { status: 404 }
       );
     }
 
-    // If updating name, check for duplicates
-    if (data.name && data.name !== existingCategory.name) {
-      const duplicateCategory = await prisma.inventoryCategory.findFirst({
-        where: {
-          name: data.name,
-          isActive: true,
-          id: { not: id },
-        },
-      });
+    return NextResponse.json(category);
+  } catch (error) {
+    console.error('Error fetching inventory category:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch inventory category' },
+      { status: 500 }
+    );
+  }
+}
 
-      if (duplicateCategory) {
-        return NextResponse.json(
-          { error: 'Category name already exists' },
-          { status: 409 }
-        );
-      }
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { name, description, icon, color } = body;
+
+    if (!name) {
+      return NextResponse.json(
+        { error: 'Name is required' },
+        { status: 400 }
+      );
     }
 
-    const updatedCategory = await prisma.inventoryCategory.update({
-      where: { id },
-      data: {
-        name: data.name,
-        description: data.description,
-        icon: data.icon,
-        color: data.color,
-      },
-    });
+    const supabase = supabaseDb['client'];
+    const { data: category, error } = await supabase
+      .from('inventory_categories')
+      .update({
+        name,
+        description,
+        icon: icon || '📦',
+        color: color || '#3B82F6',
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
 
-    return NextResponse.json(updatedCategory);
+    if (error) throw error;
+    return NextResponse.json(category);
   } catch (error) {
     console.error('Error updating inventory category:', error);
     return NextResponse.json(
@@ -61,48 +70,19 @@ export async function PUT(
   }
 }
 
-// DELETE /api/inventory-categories/[id] - Delete an inventory category
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('inventory_categories')
+      .delete()
+      .eq('id', params.id);
 
-    // Check if category exists
-    const existingCategory = await prisma.inventoryCategory.findUnique({
-      where: { id },
-      include: {
-        stockItems: {
-          where: {
-            isActive: true,
-          },
-        },
-      },
-    });
-
-    if (!existingCategory) {
-      return NextResponse.json(
-        { error: 'Inventory category not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if category has active stock items
-    if (existingCategory.stockItems.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete category with existing stock items' },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete by setting isActive to false
-    await prisma.inventoryCategory.update({
-      where: { id },
-      data: { isActive: false },
-    });
-
-    return NextResponse.json({ success: true, message: 'Category deleted successfully' });
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting inventory category:', error);
     return NextResponse.json(

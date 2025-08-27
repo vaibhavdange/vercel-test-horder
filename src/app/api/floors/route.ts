@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
-import { CreateFloorRequest } from '@/types/tables';
+import { supabaseDb } from '@/lib/database/supabase';
 
-// GET /api/floors - Get all floors
 export async function GET() {
   try {
-    const floors = await prisma.floor.findMany({
-      include: {
-        areas: {
-          include: {
-            tables: true,
-          },
-        },
-        tables: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+    const supabase = supabaseDb['client'];
+    const { data: floors, error } = await supabase
+      .from('floors')
+      .select('*')
+      .order('name', { ascending: true });
 
-    return NextResponse.json(floors);
+    if (error) throw error;
+    return NextResponse.json(floors || []);
   } catch (error) {
     console.error('Error fetching floors:', error);
     return NextResponse.json(
@@ -29,49 +20,32 @@ export async function GET() {
   }
 }
 
-// POST /api/floors - Create a new floor
 export async function POST(request: NextRequest) {
   try {
-    const data: CreateFloorRequest = await request.json();
+    const body = await request.json();
+    const { name, description } = body;
 
-    // Validate required fields
-    if (!data.name) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Floor name is required' },
+        { error: 'Name is required' },
         { status: 400 }
       );
     }
 
-    // Check if floor name already exists
-    const existingFloor = await prisma.floor.findFirst({
-      where: {
-        name: data.name,
-      },
-    });
-
-    if (existingFloor) {
-      return NextResponse.json(
-        { error: 'Floor name already exists' },
-        { status: 409 }
-      );
-    }
-
-    const floor = await prisma.floor.create({
-      data: {
-        name: data.name,
-        description: data.description,
+    const supabase = supabaseDb['client'];
+    const { data: floor, error } = await supabase
+      .from('floors')
+      .insert({
+        id: `floor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name,
+        description,
         isActive: true,
-      },
-      include: {
-        areas: {
-          include: {
-            tables: true,
-          },
-        },
-        tables: true,
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
+    if (error) throw error;
     return NextResponse.json(floor, { status: 201 });
   } catch (error) {
     console.error('Error creating floor:', error);

@@ -1,44 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const recipe = await prisma.recipe.findUnique({
-      where: { id: params.id },
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            category: {
-              select: {
-                name: true,
-                icon: true
-              }
-            }
-          }
-        },
-        items: {
-          include: {
-            stockItem: {
-              select: {
-                id: true,
-                name: true,
-                unit: true,
-                stockQuantity: true,
-                minStockLevel: true,
-                costPerUnit: true
-              }
-            }
-          }
-        }
-      }
-    });
+    const supabase = supabaseDb['client'];
+    const { data: recipe, error } = await supabase
+      .from('recipes')
+      .select(`
+        *,
+        products (*),
+        recipe_items (
+          *,
+          ingredients (*)
+        )
+      `)
+      .eq('id', params.id)
+      .single();
 
-    if (!recipe) {
+    if (error || !recipe) {
       return NextResponse.json(
         { error: 'Recipe not found' },
         { status: 404 }
@@ -63,39 +45,54 @@ export async function PUT(
     const body = await request.json();
     const { name, description, servings, items } = body;
 
-    if (!name || !items || items.length === 0) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Name and items are required' },
+        { error: 'Name is required' },
         { status: 400 }
       );
     }
 
-    // Update recipe and its items
-    const recipe = await prisma.recipe.update({
-      where: { id: params.id },
-      data: {
+    const supabase = supabaseDb['client'];
+    const { data: recipe, error } = await supabase
+      .from('recipes')
+      .update({
         name,
         description,
         servings: servings || 1,
-        items: {
-          deleteMany: {}, // Delete all existing items
-          create: items.map((item: any) => ({
-            stockItemId: item.stockItemId,
-            quantity: item.quantity,
-            unit: item.unit,
-            notes: item.notes
-          }))
-        }
-      },
-      include: {
-        product: true,
-        items: {
-          include: {
-            stockItem: true
-          }
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Update recipe items if provided
+    if (items && Array.isArray(items)) {
+      // Delete existing items
+      await supabase
+        .from('recipe_items')
+        .delete()
+        .eq('recipe_id', params.id);
+
+      // Create new items
+      if (items.length > 0) {
+        const recipeItems = items.map(item => ({
+          recipe_id: params.id,
+          ingredient_id: item.ingredientId,
+          quantity: item.quantity,
+          unit: item.unit,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('recipe_items')
+          .insert(recipeItems);
+
+        if (itemsError) {
+          console.error('Failed to update recipe items:', itemsError);
         }
       }
-    });
+    }
 
     return NextResponse.json(recipe);
   } catch (error) {
@@ -112,11 +109,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.recipe.delete({
-      where: { id: params.id }
-    });
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('recipes')
+      .delete()
+      .eq('id', params.id);
 
-    return NextResponse.json({ message: 'Recipe deleted successfully' });
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting recipe:', error);
     return NextResponse.json(

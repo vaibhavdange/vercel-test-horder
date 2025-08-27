@@ -1,66 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
-import { UpdateStockItemData } from '@/types/menu';
+import { supabaseDb } from '@/lib/database/supabase';
 
-// PUT /api/stock-items/[id] - Update a stock item
-export async function PUT(
+export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const data: UpdateStockItemData = await request.json();
+    const supabase = supabaseDb['client'];
+    const { data: stockItem, error } = await supabase
+      .from('stock_items')
+      .select(`
+        *,
+        inventory_categories (*)
+      `)
+      .eq('id', params.id)
+      .single();
 
-    // Check if stock item exists
-    const existingStockItem = await prisma.stockItem.findUnique({
-      where: { id },
-    });
-
-    if (!existingStockItem) {
+    if (error || !stockItem) {
       return NextResponse.json(
         { error: 'Stock item not found' },
         { status: 404 }
       );
     }
 
-    // If updating name, check for duplicates in the same category
-    if (data.name && data.name !== existingStockItem.name) {
-      const duplicateStockItem = await prisma.stockItem.findFirst({
-        where: {
-          name: data.name,
-          categoryId: data.categoryId || existingStockItem.categoryId,
-          isActive: true,
-          id: { not: id },
-        },
-      });
+    return NextResponse.json(stockItem);
+  } catch (error) {
+    console.error('Error fetching stock item:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch stock item' },
+      { status: 500 }
+    );
+  }
+}
 
-      if (duplicateStockItem) {
-        return NextResponse.json(
-          { error: 'Stock item name already exists in this category' },
-          { status: 409 }
-        );
-      }
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { name, description, unit, stockQuantity, minStockLevel, costPerUnit, supplier, categoryId } = body;
+
+    if (!name || !unit) {
+      return NextResponse.json(
+        { error: 'Name and unit are required' },
+        { status: 400 }
+      );
     }
 
-    const updatedStockItem = await prisma.stockItem.update({
-      where: { id },
-      data: {
-        name: data.name,
-        description: data.description,
-        unit: data.unit,
-        costPerUnit: data.costPerUnit,
-        stockQuantity: data.stockQuantity,
-        minStockLevel: data.minStockLevel,
-        supplier: data.supplier,
-        location: data.location,
-        categoryId: data.categoryId,
-      },
-      include: {
-        category: true,
-      },
-    });
+    const supabase = supabaseDb['client'];
+    
+    // Build update object with only provided fields
+    const updateData: any = {
+      name,
+      description,
+      unit,
+      costPerUnit: costPerUnit || 0,
+      stockQuantity: stockQuantity || 0,
+      minStockLevel: minStockLevel || 0,
+      supplier,
+      updatedAt: new Date().toISOString(),
+    };
 
-    return NextResponse.json(updatedStockItem);
+    // Only include categoryId if it's provided
+    if (categoryId !== undefined) {
+      updateData.categoryId = categoryId;
+    }
+
+    const { data: stockItem, error } = await supabase
+      .from('stock_items')
+      .update(updateData)
+      .eq('id', params.id)
+      .select(`
+        *,
+        inventory_categories (*)
+      `)
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json(stockItem);
   } catch (error) {
     console.error('Error updating stock item:', error);
     return NextResponse.json(
@@ -70,45 +88,19 @@ export async function PUT(
   }
 }
 
-// DELETE /api/stock-items/[id] - Delete a stock item
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('stock_items')
+      .delete()
+      .eq('id', params.id);
 
-    // Check if stock item exists
-    const existingStockItem = await prisma.stockItem.findUnique({
-      where: { id },
-    });
-
-    if (!existingStockItem) {
-      return NextResponse.json(
-        { error: 'Stock item not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if stock item is used in recipes
-    const recipeItems = await prisma.recipeItem.findMany({
-      where: { stockItemId: id },
-    });
-
-    if (recipeItems.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete stock item that is used in recipes' },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete by setting isActive to false
-    await prisma.stockItem.update({
-      where: { id },
-      data: { isActive: false },
-    });
-
-    return NextResponse.json({ success: true, message: 'Stock item deleted successfully' });
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting stock item:', error);
     return NextResponse.json(

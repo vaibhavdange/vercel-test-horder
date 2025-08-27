@@ -1,29 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 
-// PATCH /api/stock-items/[id]/stock - Update stock quantity
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { adjustment, reason } = body;
+
+    if (typeof adjustment !== 'number') {
+      return NextResponse.json(
+        { error: 'Adjustment amount is required' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = supabaseDb['client'];
+    
+    // Get current stock item
+    const { data: stockItem, error: fetchError } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('id', params.id)
+      .single();
+
+    if (fetchError || !stockItem) {
+      return NextResponse.json(
+        { error: 'Stock item not found' },
+        { status: 404 }
+      );
+    }
+
+    // Calculate new stock quantity
+    const newStockQuantity = stockItem.stockQuantity + adjustment;
+
+    // Update stock quantity
+    const { data: updatedStockItem, error: updateError } = await supabase
+      .from('stock_items')
+      .update({
+        stockQuantity: newStockQuantity,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    return NextResponse.json({
+      success: true,
+      stockItem: updatedStockItem,
+      adjustment,
+      previousStock: stockItem.stockQuantity,
+      newStock: newStockQuantity,
+      reason,
+    });
+  } catch (error) {
+    console.error('Error adjusting stock:', error);
+    return NextResponse.json(
+      { error: 'Failed to adjust stock' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const { quantity } = await request.json();
+    const body = await request.json();
+    const { quantity } = body;
 
-    // Validate input
-    if (typeof quantity !== 'number' || quantity < 0) {
+    if (typeof quantity !== 'number') {
       return NextResponse.json(
-        { error: 'Valid quantity is required' },
+        { error: 'Quantity is required and must be a number' },
         { status: 400 }
       );
     }
 
-    // Check if stock item exists
-    const existingStockItem = await prisma.stockItem.findUnique({
-      where: { id },
-    });
+    const supabase = supabaseDb['client'];
+    
+    // Get current stock item
+    const { data: stockItem, error: fetchError } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('id', params.id)
+      .single();
 
-    if (!existingStockItem) {
+    if (fetchError || !stockItem) {
       return NextResponse.json(
         { error: 'Stock item not found' },
         { status: 404 }
@@ -31,15 +97,17 @@ export async function PATCH(
     }
 
     // Update stock quantity
-    const updatedStockItem = await prisma.stockItem.update({
-      where: { id },
-      data: {
+    const { data: updatedStockItem, error: updateError } = await supabase
+      .from('stock_items')
+      .update({
         stockQuantity: quantity,
-      },
-      include: {
-        category: true,
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
 
     return NextResponse.json(updatedStockItem);
   } catch (error) {

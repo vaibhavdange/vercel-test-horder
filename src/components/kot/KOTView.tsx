@@ -97,6 +97,12 @@ export default function KOTView({ isOpen, onClose }: KOTViewProps) {
     return order.status === selectedStatus;
   });
 
+  // Prefer backend-provided orderItems; fallback to local items
+  const getOrderItems = (o: { orderItems?: OrderItem[]; items?: OrderItem[] }): OrderItem[] => {
+    if (o?.orderItems && o.orderItems.length > 0) return o.orderItems;
+    return o?.items || [];
+  };
+
   const handleStatusChange = (orderId: string, newStatus: RestaurantOrder['status']) => {
     setOrderStatus(orderId, newStatus);
   };
@@ -236,7 +242,7 @@ export default function KOTView({ isOpen, onClose }: KOTViewProps) {
                   ) : (
                     <Truck className="h-4 w-4" />
                   )}
-                  <span>{order.orderType} • {order.items.length} items</span>
+                  <span>{order.orderType} • {getOrderItems(order).length} items</span>
                 </div>
                 {order.tableNumber && (
                   <div className="text-sm text-gray-600">
@@ -410,7 +416,7 @@ export default function KOTView({ isOpen, onClose }: KOTViewProps) {
                   </div>
                   
                   {/* Table Rows */}
-                  {selectedKOT.items.map((item) => (
+                  {getOrderItems(selectedKOT).map((item) => (
                     <div key={item.id} className="grid grid-cols-3 gap-2 text-sm border-b border-gray-100 pb-2">
                       <span className="font-medium">{item.quantity}</span>
                       <span className="font-medium">{item.productName}</span>

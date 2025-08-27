@@ -116,7 +116,7 @@ export const useCreateOrderOptimistic = () => {
         notes: orderData.notes,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        orderItems: orderData.orderItems.map(item => ({
+        orderItems: orderData.orderItems?.map(item => ({
           id: `temp-item-${Date.now()}-${Math.random()}`,
           orderId: `temp-${Date.now()}`,
           productId: item.productId,

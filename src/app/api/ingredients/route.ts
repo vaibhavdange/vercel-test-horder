@@ -1,56 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const categoryId = searchParams.get('categoryId');
-    const search = searchParams.get('search');
-    const stockFilter = searchParams.get('stockFilter');
+    const supabase = supabaseDb['client'];
+    const { data: ingredients, error } = await supabase
+      .from('stock_items')
+      .select('*')
+      .order('name', { ascending: true });
 
-    const where: any = {};
-
-    if (categoryId && categoryId !== 'All') {
-      where.categoryId = categoryId;
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
-        { supplier: { contains: search } }
-      ];
-    }
-
-    if (stockFilter) {
-      switch (stockFilter) {
-        case 'LowStock':
-          where.stockQuantity = { lte: { minStockLevel: true } };
-          break;
-        case 'OutOfStock':
-          where.stockQuantity = { lte: 0 };
-          break;
-        case 'InStock':
-          where.stockQuantity = { gt: 0 };
-          break;
-      }
-    }
-
-    const stockItems = await prisma.stockItem.findMany({
-      where,
-      include: {
-        category: true,
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-
-    return NextResponse.json(stockItems);
+    if (error) throw error;
+    return NextResponse.json(ingredients || []);
   } catch (error) {
-    console.error('Error fetching stock items:', error);
+    console.error('Error fetching ingredients:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch stock items' },
+      { error: 'Failed to fetch ingredients' },
       { status: 500 }
     );
   }
@@ -59,48 +23,39 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      name,
-      description,
-      unit,
-      costPerUnit,
-      stockQuantity,
-      minStockLevel,
-      supplier,
-      location,
-      categoryId
-    } = body;
+    const { name, description, unit, costPerUnit, stockQuantity, minStockLevel, supplier } = body;
 
-    // Validate required fields
-    if (!name || !unit || costPerUnit === undefined || stockQuantity === undefined) {
+    if (!name || !unit) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Name and unit are required' },
         { status: 400 }
       );
     }
 
-    const stockItem = await prisma.stockItem.create({
-      data: {
+    const supabase = supabaseDb['client'];
+    const { data: ingredient, error } = await supabase
+      .from('stock_items')
+      .insert({
+        id: `ingredient_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name,
         description,
         unit,
-        costPerUnit: parseFloat(costPerUnit),
-        stockQuantity: parseFloat(stockQuantity),
-        minStockLevel: parseFloat(minStockLevel || 0),
+        costPerUnit: costPerUnit || 0,
+        stockQuantity: stockQuantity || 0,
+        minStockLevel: minStockLevel || 0,
         supplier,
-        location,
-        categoryId: categoryId || null,
-      },
-      include: {
-        category: true,
-      }
-    });
+        isActive: true,
+        updatedAt: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-    return NextResponse.json(stockItem, { status: 201 });
+    if (error) throw error;
+    return NextResponse.json(ingredient, { status: 201 });
   } catch (error) {
-    console.error('Error creating stock item:', error);
+    console.error('Error creating ingredient:', error);
     return NextResponse.json(
-      { error: 'Failed to create stock item' },
+      { error: 'Failed to create ingredient' },
       { status: 500 }
     );
   }

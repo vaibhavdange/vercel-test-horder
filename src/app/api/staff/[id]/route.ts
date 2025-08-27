@@ -1,232 +1,123 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/database/prisma";
-import { logger } from "@/lib/logging/logger";
-import { UpdateStaffData } from "@/types/staff";
+import { supabaseDb } from "@/lib/database/supabase";
 
-// GET /api/staff/[id] - Get specific staff member
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const startTime = Date.now();
-  const requestId = `staff-get-${Date.now()}`;
-  
   try {
-    const staff = await prisma.staff.findUnique({
-      where: { id: params.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            fullName: true,
-            email: true,
-            phone: true,
-            role: true,
-            isActive: true,
-            lastLogin: true,
-            createdAt: true,
-            updatedAt: true,
-          }
-        }
-      }
-    });
+    const supabase = supabaseDb['client'];
+    const { data: staff, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('id', params.id)
+      .single();
 
-    if (!staff) {
+    if (error || !staff) {
       return NextResponse.json(
-        { error: 'Staff member not found' },
+        { error: "Staff member not found" },
         { status: 404 }
       );
     }
 
-    logger.info('Staff member retrieved successfully', {
-      requestId,
-      staffId: staff.id,
-      employeeId: staff.employeeId
-    });
-
     return NextResponse.json(staff);
-
   } catch (error) {
-    const responseTime = Date.now() - startTime;
-    logger.error('Failed to retrieve staff member', {
-      requestId,
-      staffId: params.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      responseTime
-    });
-
+    console.error("Failed to fetch staff member:", error);
     return NextResponse.json(
-      { error: 'Failed to retrieve staff member' },
+      { error: "Failed to fetch staff member" },
       { status: 500 }
     );
   }
 }
 
-// PUT /api/staff/[id] - Update staff member
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const startTime = Date.now();
-  const requestId = `staff-update-${Date.now()}`;
-  
   try {
-    const body: UpdateStaffData = await request.json();
-    
-    // Check if staff exists
-    const existingStaff = await prisma.staff.findUnique({
-      where: { id: params.id }
-    });
+    const body = await request.json();
+    const { name, email, phone, role, isActive } = body;
 
-    if (!existingStaff) {
+    if (!name || !email) {
       return NextResponse.json(
-        { error: 'Staff member not found' },
+        { error: "Name and email are required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = supabaseDb['client'];
+    
+    // First get the staff record to find the userId
+    const { data: existingStaff, error: fetchError } = await supabase
+      .from('staff')
+      .select('userId')
+      .eq('id', params.id)
+      .single();
+
+    if (fetchError || !existingStaff) {
+      return NextResponse.json(
+        { error: "Staff member not found" },
         { status: 404 }
       );
     }
 
-    // Check if employee ID is being changed and if it already exists
-    if (body.employeeId && body.employeeId !== existingStaff.employeeId) {
-      const duplicateEmployeeId = await prisma.staff.findUnique({
-        where: { employeeId: body.employeeId }
-      });
+    // Update the user record
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .update({
+        fullName: name,
+        email,
+        phone,
+        role: role || 'cashier',
+        isActive: isActive !== false,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', existingStaff.userId)
+      .select()
+      .single();
 
-      if (duplicateEmployeeId) {
-        return NextResponse.json(
-          { error: 'Employee ID already exists' },
-          { status: 409 }
-        );
-      }
-    }
+    if (userError) throw userError;
 
-    // Update staff and user in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Update user if user fields are provided
-      if (body.fullName || body.email || body.phone || body.role) {
-        await tx.user.update({
-          where: { id: existingStaff.userId },
-          data: {
-            ...(body.fullName && { fullName: body.fullName }),
-            ...(body.email && { email: body.email }),
-            ...(body.phone && { phone: body.phone }),
-            ...(body.role && { role: body.role }),
-          }
-        });
-      }
+    // Update the staff record
+    const { data: staff, error: staffError } = await supabase
+      .from('staff')
+      .update({
+        isActive: isActive !== false,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
 
-      // Update staff
-      const updatedStaff = await tx.staff.update({
-        where: { id: params.id },
-        data: {
-          ...(body.employeeId && { employeeId: body.employeeId }),
-          ...(body.profilePicture && { profilePicture: body.profilePicture }),
-          ...(body.dateOfBirth && { dateOfBirth: new Date(body.dateOfBirth) }),
-          ...(body.salary !== undefined && { salary: body.salary }),
-          ...(body.shiftStart && { shiftStart: body.shiftStart }),
-          ...(body.shiftEnd && { shiftEnd: body.shiftEnd }),
-          ...(body.address && { address: body.address }),
-          ...(body.additionalDetails && { additionalDetails: body.additionalDetails }),
-          ...(body.isActive !== undefined && { isActive: body.isActive }),
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              fullName: true,
-              email: true,
-              phone: true,
-              role: true,
-              isActive: true,
-              lastLogin: true,
-              createdAt: true,
-              updatedAt: true,
-            }
-          }
-        }
-      });
+    if (staffError) throw staffError;
 
-      return updatedStaff;
-    });
-
-    logger.info('Staff member updated successfully', {
-      requestId,
-      staffId: result.id,
-      employeeId: result.employeeId
-    });
-
-    return NextResponse.json(result);
-
+    return NextResponse.json({ ...staff, user });
   } catch (error) {
-    const responseTime = Date.now() - startTime;
-    logger.error('Failed to update staff member', {
-      requestId,
-      staffId: params.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      responseTime
-    });
-
+    console.error("Failed to update staff member:", error);
     return NextResponse.json(
-      { error: 'Failed to update staff member' },
+      { error: "Failed to update staff member" },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/staff/[id] - Delete staff member
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const startTime = Date.now();
-  const requestId = `staff-delete-${Date.now()}`;
-  
   try {
-    // Check if staff exists
-    const existingStaff = await prisma.staff.findUnique({
-      where: { id: params.id }
-    });
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('staff')
+      .delete()
+      .eq('id', params.id);
 
-    if (!existingStaff) {
-      return NextResponse.json(
-        { error: 'Staff member not found' },
-        { status: 404 }
-      );
-    }
-
-    // Delete staff and user in a transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete staff (this will cascade to attendance)
-      await tx.staff.delete({
-        where: { id: params.id }
-      });
-
-      // Delete user
-      await tx.user.delete({
-        where: { id: existingStaff.userId }
-      });
-    });
-
-    logger.info('Staff member deleted successfully', {
-      requestId,
-      staffId: params.id,
-      employeeId: existingStaff.employeeId
-    });
-
-    return NextResponse.json({ message: 'Staff member deleted successfully' });
-
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) {
-    const responseTime = Date.now() - startTime;
-    logger.error('Failed to delete staff member', {
-      requestId,
-      staffId: params.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      responseTime
-    });
-
+    console.error("Failed to delete staff member:", error);
     return NextResponse.json(
-      { error: 'Failed to delete staff member' },
+      { error: "Failed to delete staff member" },
       { status: 500 }
     );
   }

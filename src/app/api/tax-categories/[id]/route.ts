@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const taxCategory = await prisma.taxCategory.findUnique({
-      where: { id: params.id }
-    });
+    const supabase = supabaseDb['client'];
+    const { data: taxCategory, error } = await supabase
+      .from('tax_categories')
+      .select('*')
+      .eq('id', params.id)
+      .single();
 
-    if (!taxCategory) {
+    if (error || !taxCategory) {
       return NextResponse.json(
         { error: 'Tax category not found' },
         { status: 404 }
@@ -33,45 +36,30 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { name, description, taxRate, isActive } = body;
+    const { name, description, taxRate } = body;
 
-    // Validate tax rate if provided
-    if (taxRate !== undefined && (taxRate < 0 || taxRate > 1)) {
+    if (!name || typeof taxRate !== 'number') {
       return NextResponse.json(
-        { error: 'Tax rate must be between 0 and 1 (e.g., 0.08 for 8%)' },
+        { error: 'Name and tax rate are required' },
         { status: 400 }
       );
     }
 
-    // Check if name is being changed and if it conflicts with existing names
-    if (name) {
-      const existingCategory = await prisma.taxCategory.findFirst({
-        where: {
-          name: { equals: name },
-          id: { not: params.id }
-        }
-      });
+    const supabase = supabaseDb['client'];
+    const { data: taxCategory, error } = await supabase
+      .from('tax_categories')
+      .update({
+        name,
+        description,
+        taxRate: taxRate,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
 
-      if (existingCategory) {
-        return NextResponse.json(
-          { error: 'Tax category with this name already exists' },
-          { status: 409 }
-        );
-      }
-    }
-
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description?.trim();
-    if (taxRate !== undefined) updateData.taxRate = parseFloat(taxRate);
-    if (isActive !== undefined) updateData.isActive = isActive;
-
-    const updatedTaxCategory = await prisma.taxCategory.update({
-      where: { id: params.id },
-      data: updateData
-    });
-
-    return NextResponse.json(updatedTaxCategory);
+    if (error) throw error;
+    return NextResponse.json(taxCategory);
   } catch (error) {
     console.error('Error updating tax category:', error);
     return NextResponse.json(
@@ -86,23 +74,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if tax category is being used by any products
-    const productsUsingCategory = await prisma.product.findFirst({
-      where: { taxCategoryId: params.id }
-    });
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('tax_categories')
+      .delete()
+      .eq('id', params.id);
 
-    if (productsUsingCategory) {
-      return NextResponse.json(
-        { error: 'Cannot delete tax category that is being used by products' },
-        { status: 400 }
-      );
-    }
-
-    await prisma.taxCategory.delete({
-      where: { id: params.id }
-    });
-
-    return NextResponse.json({ message: 'Tax category deleted successfully' });
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting tax category:', error);
     return NextResponse.json(

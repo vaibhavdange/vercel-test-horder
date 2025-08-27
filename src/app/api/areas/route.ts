@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
-import { CreateAreaRequest } from '@/types/tables';
+import { supabaseDb } from '@/lib/database/supabase';
 
-// GET /api/areas - Get all areas
 export async function GET() {
   try {
-    const areas = await prisma.area.findMany({
-      include: {
-        floor: true,
-        tables: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+    const supabase = supabaseDb['client'];
+    const { data: areas, error } = await supabase
+      .from('areas')
+      .select(`
+        *,
+        floors (*)
+      `)
+      .order('name', { ascending: true });
 
-    return NextResponse.json(areas);
+    if (error) throw error;
+    return NextResponse.json(areas || []);
   } catch (error) {
     console.error('Error fetching areas:', error);
     return NextResponse.json(
@@ -25,59 +23,43 @@ export async function GET() {
   }
 }
 
-// POST /api/areas - Create a new area
 export async function POST(request: NextRequest) {
   try {
-    const data: CreateAreaRequest = await request.json();
+    const body = await request.json();
+    const { name, description, floorId } = body;
 
-    // Validate required fields
-    if (!data.name || !data.floorId) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Area name and floor ID are required' },
+        { error: 'Name is required' },
         { status: 400 }
       );
     }
 
-    // Check if floor exists
-    const floor = await prisma.floor.findUnique({
-      where: { id: data.floorId },
-    });
-
-    if (!floor) {
+    if (!floorId) {
       return NextResponse.json(
-        { error: 'Floor not found' },
-        { status: 404 }
+        { error: 'Floor ID is required' },
+        { status: 400 }
       );
     }
 
-    // Check if area name already exists in the same floor
-    const existingArea = await prisma.area.findFirst({
-      where: {
-        name: data.name,
-        floorId: data.floorId,
-      },
-    });
-
-    if (existingArea) {
-      return NextResponse.json(
-        { error: 'Area name already exists in this floor' },
-        { status: 409 }
-      );
-    }
-
-    const area = await prisma.area.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        floorId: data.floorId,
+    const supabase = supabaseDb['client'];
+    const { data: area, error } = await supabase
+      .from('areas')
+      .insert({
+        id: `area_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name,
+        description,
+        floorId: floorId,
         isActive: true,
-      },
-      include: {
-        floor: true,
-        tables: true,
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .select(`
+        *,
+        floors (*)
+      `)
+      .single();
 
+    if (error) throw error;
     return NextResponse.json(area, { status: 201 });
   } catch (error) {
     console.error('Error creating area:', error);

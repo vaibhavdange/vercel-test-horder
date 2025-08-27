@@ -9,13 +9,17 @@ export const supabase = createClient(
 // Server-side Supabase client (for API routes)
 export const createServerSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE!
+  // Use service role key for server-side operations to bypass RLS
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE!
 
-  if (!supabaseUrl || !supabaseServiceKey) {
+  if (!supabaseUrl || !supabaseKey) {
     throw new Error('Missing Supabase environment variables')
   }
 
-  return createClient(supabaseUrl, supabaseServiceKey, {
+  console.log('Creating Supabase client with URL:', supabaseUrl)
+  console.log('Using service role key for server-side operations')
+
+  return createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false

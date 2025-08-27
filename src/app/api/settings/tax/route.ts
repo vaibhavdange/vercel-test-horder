@@ -1,24 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
-
-const KEY = 'tax';
-
-export async function POST(request: NextRequest) {
-  try {
-    const data = await request.json();
-    await prisma.setting.upsert({ where: { key: KEY }, update: { value: JSON.stringify(data) }, create: { key: KEY, value: JSON.stringify(data) } });
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to save tax settings' }, { status: 500 });
-  }
-}
+import { supabaseDb } from '@/lib/database/supabase';
 
 export async function GET() {
   try {
-    const row = await prisma.setting.findUnique({ where: { key: KEY } });
-    return NextResponse.json(row ? JSON.parse(row.value) : { taxRates: [] });
+    const settings = await supabaseDb.getSettings();
+    return NextResponse.json(settings);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to load tax settings' }, { status: 500 });
+    console.error('Error fetching tax settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch tax settings' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const settings = await supabaseDb.updateSettings(body);
+    return NextResponse.json(settings);
+  } catch (error) {
+    console.error('Error updating tax settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to update tax settings' },
+      { status: 500 }
+    );
   }
 }
 

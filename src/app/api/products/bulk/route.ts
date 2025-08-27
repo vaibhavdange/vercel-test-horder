@@ -1,101 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, productIds, data } = body;
+    const { products } = body;
 
-    if (!action || !productIds || !Array.isArray(productIds) || productIds.length === 0) {
+    if (!products || !Array.isArray(products)) {
       return NextResponse.json(
-        { error: 'Action and product IDs are required' },
+        { error: 'Products array is required' },
         { status: 400 }
       );
     }
 
-    let result;
+    const supabase = supabaseDb['client'];
+    const { data: createdProducts, error } = await supabase
+      .from('products')
+      .insert(products.map(product => ({
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        cost: product.cost,
+        stock_quantity: product.stockQuantity || 0,
+        min_stock_level: product.minStockLevel || 0,
+        category_id: product.categoryId,
+        barcode: product.barcode,
+        tax_rate: product.taxRate || 0.0,
+        image: product.image,
+        thumbnail: product.thumbnail,
+        is_active: true,
+      })))
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          icon
+        )
+      `);
 
-    switch (action) {
-      case 'delete':
-        // Bulk delete products
-        result = await prisma.product.deleteMany({
-          where: {
-            id: { in: productIds }
-          }
-        });
-        break;
-
-      case 'updateStatus':
-        // Bulk update product status
-        if (typeof data?.isActive !== 'boolean') {
-          return NextResponse.json(
-            { error: 'isActive status is required for updateStatus action' },
-            { status: 400 }
-          );
-        }
-        result = await prisma.product.updateMany({
-          where: {
-            id: { in: productIds }
-          },
-          data: {
-            isActive: data.isActive
-          }
-        });
-        break;
-
-      case 'updateCategory':
-        // Bulk update product category
-        if (!data?.categoryId) {
-          return NextResponse.json(
-            { error: 'categoryId is required for updateCategory action' },
-            { status: 400 }
-          );
-        }
-        result = await prisma.product.updateMany({
-          where: {
-            id: { in: productIds }
-          },
-          data: {
-            categoryId: data.categoryId
-          }
-        });
-        break;
-
-      case 'updateStock':
-        // Bulk update stock quantities
-        if (typeof data?.stockQuantity !== 'number' || data.stockQuantity < 0) {
-          return NextResponse.json(
-            { error: 'Valid stockQuantity is required for updateStock action' },
-            { status: 400 }
-          );
-        }
-        result = await prisma.product.updateMany({
-          where: {
-            id: { in: productIds }
-          },
-          data: {
-            stockQuantity: data.stockQuantity
-          }
-        });
-        break;
-
-      default:
-        return NextResponse.json(
-          { error: 'Invalid action. Supported actions: delete, updateStatus, updateCategory, updateStock' },
-          { status: 400 }
-        );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Bulk ${action} completed successfully`,
-      affectedCount: result.count
-    });
-
+    if (error) throw error;
+    return NextResponse.json(createdProducts, { status: 201 });
   } catch (error) {
-    console.error('Error performing bulk operation:', error);
+    console.error('Error creating bulk products:', error);
     return NextResponse.json(
-      { error: 'Failed to perform bulk operation' },
+      { error: 'Failed to create bulk products' },
       { status: 500 }
     );
   }

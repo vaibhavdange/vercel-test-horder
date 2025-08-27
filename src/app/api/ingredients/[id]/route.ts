@@ -1,5 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = supabaseDb['client'];
+    const { data: ingredient, error } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('id', params.id)
+      .single();
+
+    if (error || !ingredient) {
+      return NextResponse.json(
+        { error: 'Ingredient not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(ingredient);
+  } catch (error) {
+    console.error('Error fetching ingredient:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch ingredient' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function PUT(
   request: NextRequest,
@@ -7,49 +36,38 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const {
-      name,
-      description,
-      unit,
-      costPerUnit,
-      stockQuantity,
-      minStockLevel,
-      supplier,
-      location,
-      categoryId
-    } = body;
+    const { name, description, unit, costPerUnit, supplier, stockQuantity, minStockLevel } = body;
 
-    // Validate required fields
-    if (!name || !unit || costPerUnit === undefined || stockQuantity === undefined) {
+    if (!name || !unit) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Name and unit are required' },
         { status: 400 }
       );
     }
 
-    const stockItem = await prisma.stockItem.update({
-      where: { id: params.id },
-      data: {
+    const supabase = supabaseDb['client'];
+    const { data: ingredient, error } = await supabase
+      .from('stock_items')
+      .update({
         name,
         description,
         unit,
-        costPerUnit: parseFloat(costPerUnit),
-        stockQuantity: parseFloat(stockQuantity),
-        minStockLevel: parseFloat(minStockLevel || 0),
+        costPerUnit: costPerUnit || 0,
+        stockQuantity: stockQuantity || 0,
+        minStockLevel: minStockLevel || 0,
         supplier,
-        location,
-        categoryId: categoryId || null,
-      },
-      include: {
-        category: true,
-      }
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
 
-    return NextResponse.json(stockItem);
+    if (error) throw error;
+    return NextResponse.json(ingredient);
   } catch (error) {
-    console.error('Error updating stock item:', error);
+    console.error('Error updating ingredient:', error);
     return NextResponse.json(
-      { error: 'Failed to update stock item' },
+      { error: 'Failed to update ingredient' },
       { status: 500 }
     );
   }
@@ -60,27 +78,18 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if stock item is used in any recipes
-    const recipeItems = await prisma.recipeItem.findMany({
-      where: { stockItemId: params.id }
-    });
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('stock_items')
+      .delete()
+      .eq('id', params.id);
 
-    if (recipeItems.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete stock item that is used in recipes' },
-        { status: 400 }
-      );
-    }
-
-    await prisma.stockItem.delete({
-      where: { id: params.id }
-    });
-
-    return NextResponse.json({ message: 'Stock item deleted successfully' });
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting stock item:', error);
+    console.error('Error deleting ingredient:', error);
     return NextResponse.json(
-      { error: 'Failed to delete stock item' },
+      { error: 'Failed to delete ingredient' },
       { status: 500 }
     );
   }

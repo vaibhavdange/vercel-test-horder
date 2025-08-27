@@ -40,7 +40,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState(false);
-  const [isOrderSummaryCollapsed, setIsOrderSummaryCollapsed] = useState<boolean>(true);
+  const [isOrderSummaryCollapsed, setIsOrderSummaryCollapsed] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success">("idle");
   const [completedTransaction, setCompletedTransaction] = useState<any>(null);
@@ -230,7 +230,8 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   // Aggregate extras across items, multiplying by item quantity
   const getAggregatedExtras = (): Array<{ name: string; quantity: number; unitPrice?: number }> => {
     const map: Record<string, { name: string; quantity: number; unitPrice?: number }> = {};
-    (order.orderItems || []).forEach((item: OrderItem) => {
+    const sourceItems: OrderItem[] = (order.orderItems && order.orderItems.length > 0) ? order.orderItems : (((order as any).items || []) as OrderItem[]);
+    sourceItems.forEach((item: OrderItem) => {
       const extras = parseExtrasFromNotes(item.customizationNotes);
       const itemQty = item.quantity || 1;
       extras.forEach((ex) => {
@@ -246,6 +247,11 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
     });
     return Object.values(map);
   };
+
+  // Order items list with fallback to support both shapes
+  const orderItemsList: OrderItem[] = (order.orderItems && order.orderItems.length > 0)
+    ? order.orderItems
+    : (((order as any).items || []) as OrderItem[]);
 
   const processPayment = async () => {
     if (!isSplitPayment && !selectedPaymentMethod) return;
@@ -276,7 +282,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
         : true;
       const transactionData = {
         orderId: order.id,
-        paymentMethod: selectedPaymentMethod?.id || "split",
+        method: selectedPaymentMethod?.id || "split",
         amount: amountForThisCharge,
         customerId: order.customerId,
         partialPayment: isSequentialSplit ? !isLastSplit : partialPayment,
@@ -409,7 +415,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-gray-700">Items Ordered:</h4>
                     <div className="space-y-1">
-                      {order.orderItems?.map((item: OrderItem, index: number) => (
+                      {orderItemsList.map((item: OrderItem, index: number) => (
                         <div key={index} className="flex justify-between items-center text-sm">
                           <span className="font-mono text-gray-600">
                             {item.quantity}x {item.productName}

@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 import { OrderItem } from '@/types/orders';
 
 export interface InventoryDeductionResult {
@@ -65,19 +65,23 @@ export class InventoryService {
     };
 
     try {
-      // Find the recipe for this product
-      const recipe = await prisma.recipe.findFirst({
-        where: { productId, isActive: true },
-        include: {
-          items: {
-            include: {
-              stockItem: true
-            }
-          }
-        }
-      });
+      const supabase = supabaseDb['client'];
 
-      if (!recipe) {
+      // Find the recipe for this product
+      const { data: recipe, error: recipeError } = await supabase
+        .from('recipes')
+        .select(`
+          *,
+          recipe_items (
+            *,
+            stock_items (*)
+          )
+        `)
+        .eq('productId', productId)
+        .eq('isActive', true)
+        .single();
+
+      if (recipeError || !recipe) {
         // No recipe found - this product doesn't use ingredients
         return result;
       }
@@ -86,8 +90,8 @@ export class InventoryService {
       const multiplier = quantity / recipe.servings;
 
       // Process each ingredient in the recipe
-      for (const recipeItem of recipe.items) {
-        const stockItem = recipeItem.stockItem;
+      for (const recipeItem of recipe.recipe_items) {
+        const stockItem = recipeItem.stock_items;
         if (!stockItem) {
           result.errors.push(`Stock item not found for recipe item: ${recipeItem.id}`);
           continue;
@@ -107,10 +111,16 @@ export class InventoryService {
         // Deduct the ingredient from inventory
         const newStock = stockItem.stockQuantity - quantityNeeded;
         
-        await prisma.stockItem.update({
-          where: { id: stockItem.id },
-          data: { stockQuantity: newStock }
-        });
+        const { error: updateError } = await supabase
+          .from('stock_items')
+          .update({ stockQuantity: newStock })
+          .eq('id', stockItem.id);
+
+        if (updateError) {
+          result.success = false;
+          result.errors.push(`Failed to update stock for ${stockItem.name}: ${updateError.message}`);
+          continue;
+        }
 
         // Record the deduction
         result.deductedItems.push({
@@ -166,8 +176,10 @@ export class InventoryService {
       });
 
       // TODO: Create an InventoryTransaction table to track all inventory movements
-      // await prisma.inventoryTransaction.create({
-      //   data: {
+      // const supabase = supabaseDb['client'];
+      // await supabase
+      //   .from('inventory_transactions')
+      //   .insert({
       //     ingredientId: data.ingredientId,
       //     type: 'DEDUCTION',
       //     quantity: data.quantityDeducted,
@@ -176,8 +188,7 @@ export class InventoryService {
       //     newStock: data.newStock,
       //     reason: data.reason,
       //     productId: data.productId
-      //   }
-      // });
+      //   });
     } catch (error) {
       console.error('Error logging inventory deduction:', error);
     }
@@ -195,22 +206,22 @@ export class InventoryService {
     daysUntilStockout?: number;
   }>> {
     try {
-      // Use raw SQL for complex comparison since Prisma doesn't support field-to-field comparison
-      const lowStockStockItems = await prisma.$queryRaw<Array<{
-        id: string;
-        name: string;
-        stockQuantity: number;
-        minStockLevel: number;
-        unit: string;
-      }>>`
-        SELECT id, name, "stockQuantity", "minStockLevel", unit
-        FROM "stock_items"
-        WHERE "isActive" = true 
-        AND "stockQuantity" <= "minStockLevel"
-        ORDER BY "stockQuantity" ASC
-      `;
+      const supabase = supabaseDb['client'];
+      
+      const { data: lowStockItems, error } = await supabase
+        .from('stock_items')
+        .select('id, name, stockQuantity, minStockLevel, unit')
+        .eq('isActive', true)
+        .order('stockQuantity', { ascending: true });
 
-      return lowStockStockItems.map(stockItem => ({
+      // Filter low stock items manually since Supabase doesn't support field-to-field comparison
+      const filteredLowStockItems = (lowStockItems || []).filter(
+        item => item.stockQuantity <= item.minStockLevel
+      );
+
+      if (error) throw error;
+
+      return filteredLowStockItems.map(stockItem => ({
         ingredientId: stockItem.id,
         ingredientName: stockItem.name,
         currentStock: stockItem.stockQuantity,
@@ -235,22 +246,20 @@ export class InventoryService {
     estimatedDaysUntilStockout: number;
   }>> {
     try {
+      const supabase = supabaseDb['client'];
+      
       // This is a placeholder for the analytics functionality
       // You would implement this by querying the inventory transaction logs
       // For now, we'll return basic information from current stock levels
       
-      const stockItems = await prisma.stockItem.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          name: true,
-          stockQuantity: true,
-          minStockLevel: true,
-          unit: true
-        }
-      });
+      const { data: stockItems, error } = await supabase
+        .from('stock_items')
+        .select('id, name, stockQuantity, minStockLevel, unit')
+        .eq('isActive', true);
 
-      return stockItems.map(stockItem => ({
+      if (error) throw error;
+
+      return (stockItems || []).map(stockItem => ({
         ingredientId: stockItem.id,
         ingredientName: stockItem.name,
         totalQuantityUsed: 0, // Would be calculated from transaction logs
@@ -316,19 +325,23 @@ export class InventoryService {
     };
 
     try {
-      // Find the recipe for this product
-      const recipe = await prisma.recipe.findFirst({
-        where: { productId, isActive: true },
-        include: {
-          items: {
-            include: {
-              stockItem: true
-            }
-          }
-        }
-      });
+      const supabase = supabaseDb['client'];
 
-      if (!recipe) {
+      // Find the recipe for this product
+      const { data: recipe, error: recipeError } = await supabase
+        .from('recipes')
+        .select(`
+          *,
+          recipe_items (
+            *,
+            stock_items (*)
+          )
+        `)
+        .eq('productId', productId)
+        .eq('isActive', true)
+        .single();
+
+      if (recipeError || !recipe) {
         return result;
       }
 
@@ -336,8 +349,8 @@ export class InventoryService {
       const multiplier = quantity / recipe.servings;
 
       // Process each ingredient in the recipe
-      for (const recipeItem of recipe.items) {
-        const stockItem = recipeItem.stockItem;
+      for (const recipeItem of recipe.recipe_items) {
+        const stockItem = recipeItem.stock_items;
         if (!stockItem) {
           result.errors.push(`Stock item not found for recipe item: ${recipeItem.id}`);
           continue;
@@ -347,10 +360,16 @@ export class InventoryService {
         const newStock = stockItem.stockQuantity + quantityToRestore;
         
         // Update the ingredient stock
-        await prisma.stockItem.update({
-          where: { id: stockItem.id },
-          data: { stockQuantity: newStock }
-        });
+        const { error: updateError } = await supabase
+          .from('stock_items')
+          .update({ stockQuantity: newStock })
+          .eq('id', stockItem.id);
+
+        if (updateError) {
+          result.success = false;
+          result.errors.push(`Failed to update stock for ${stockItem.name}: ${updateError.message}`);
+          continue;
+        }
 
         // Record the restoration
         result.deductedItems.push({

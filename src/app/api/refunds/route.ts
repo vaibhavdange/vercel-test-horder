@@ -1,167 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/database/prisma";
+import { supabaseDb } from "@/lib/database/supabase";
 
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
-    const body = await request.json();
-    const { 
-      orderId, 
-      transactionId, 
-      refundAmount, 
-      refundReason, 
-      refundMethod, 
-      refundedItems, 
-      notes 
-    } = body;
+    const supabase = supabaseDb['client'];
+    const { data: refunds, error } = await supabase
+      .from('refunds')
+      .select(`
+        *,
+        orders (*)
+      `)
+      .order('created_at', { ascending: false });
 
-    // Validate required fields
-    if (!orderId || !transactionId || !refundAmount || !refundMethod) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-
-    // Check if order exists and is paid
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { transactions: true }
-    });
-
-    if (!order) {
-      return NextResponse.json(
-        { error: "Order not found" },
-        { status: 404 }
-      );
-    }
-
-    if (order.paymentStatus !== "paid") {
-      return NextResponse.json(
-        { error: "Order is not paid and cannot be refunded" },
-        { status: 400 }
-      );
-    }
-
-    // Check if transaction exists
-    const transaction = await prisma.transaction.findUnique({
-      where: { id: transactionId }
-    });
-
-    if (!transaction) {
-      return NextResponse.json(
-        { error: "Transaction not found" },
-        { status: 404 }
-      );
-    }
-
-    // Generate unique refund number
-    const refundNumber = `REF-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-
-    // Create refund record
-    const refund = await prisma.refund.create({
-      data: {
-        refundNumber,
-        orderId,
-        transactionId,
-        refundAmount,
-        refundReason,
-        refundMethod,
-        refundStatus: 'completed', // Auto-complete for now
-        customerId: order.customerId,
-        refundDate: new Date(),
-        refundedItems: JSON.stringify(refundedItems || []),
-        notes,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      include: {
-        order: true,
-        transaction: true,
-        customer: true,
-      }
-    });
-
-    // Update order payment status to refunded
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        paymentStatus: 'refunded',
-        updatedAt: new Date(),
-      },
-    });
-
-    // Update transaction status to refunded
-    await prisma.transaction.update({
-      where: { id: transactionId },
-      data: {
-        paymentStatus: 'refunded',
-        updatedAt: new Date(),
-      },
-    });
-
-    return NextResponse.json(refund);
+    if (error) throw error;
+    return NextResponse.json(refunds || []);
   } catch (error) {
-    console.error("Failed to create refund:", error);
+    console.error("Failed to fetch refunds:", error);
     return NextResponse.json(
-      { error: "Failed to create refund" },
+      { error: "Failed to fetch refunds" },
       { status: 500 }
     );
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
-    const refundMethod = searchParams.get("refundMethod");
-    const refundStatus = searchParams.get("refundStatus");
-    const cashierId = searchParams.get("cashierId");
-    const customerId = searchParams.get("customerId");
+    const body = await request.json();
+    const { orderId, transactionId, refundAmount, refundReason, refundMethod, cashierId, customerId, notes } = body;
 
-    const where: any = {};
-
-    if (startDate && endDate) {
-      where.refundDate = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      };
+    if (!orderId || !refundAmount || !refundReason) {
+      return NextResponse.json(
+        { error: "Order ID, amount, and reason are required" },
+        { status: 400 }
+      );
     }
 
-    if (refundMethod) {
-      where.refundMethod = refundMethod;
-    }
+    // Generate refund number
+    const refundNumber = `REF-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-    if (refundStatus) {
-      where.refundStatus = refundStatus;
-    }
+    const supabase = supabaseDb['client'];
+    const { data: refund, error } = await supabase
+      .from('refunds')
+      .insert({
+        id: `refund_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        refundNumber: refundNumber,
+        orderId: orderId,
+        transactionId: transactionId,
+        refundAmount: parseFloat(refundAmount),
+        refundReason: refundReason,
+        refundMethod: refundMethod || 'cash',
+        refundStatus: 'pending',
+        cashierId: cashierId || null,
+        customerId: customerId || null,
+        refundDate: new Date().toISOString(),
+        refundedItems: JSON.stringify([]),
+        notes: notes || null,
+        updatedAt: new Date().toISOString(),
+      })
+      .select(`
+        *,
+        orders (*)
+      `)
+      .single();
 
-    if (cashierId) {
-      where.cashierId = cashierId;
-    }
-
-    if (customerId) {
-      where.customerId = customerId;
-    }
-
-    const refunds = await prisma.refund.findMany({
-      where,
-      include: {
-        order: true,
-        transaction: true,
-        customer: true,
-        cashier: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json(refunds);
+    if (error) throw error;
+    return NextResponse.json(refund, { status: 201 });
   } catch (error) {
-    console.error("Failed to fetch refunds:", error);
+    console.error("Failed to create refund:", error);
     return NextResponse.json(
-      { error: "Failed to fetch refunds" },
+      { error: "Failed to create refund" },
       { status: 500 }
     );
   }

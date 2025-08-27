@@ -1,33 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
+import { supabaseDb } from '@/lib/database/supabase';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search');
-    const activeOnly = searchParams.get('activeOnly') === 'true';
+    const supabase = supabaseDb['client'];
+    const { data: taxCategories, error } = await supabase
+      .from('tax_categories')
+      .select('*')
+      .order('name', { ascending: true });
 
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } }
-      ];
-    }
-
-    if (activeOnly) {
-      where.isActive = true;
-    }
-
-    const taxCategories = await prisma.taxCategory.findMany({
-      where,
-      orderBy: {
-        name: 'asc'
-      }
-    });
-
-    return NextResponse.json(taxCategories);
+    if (error) throw error;
+    return NextResponse.json(taxCategories || []);
   } catch (error) {
     console.error('Error fetching tax categories:', error);
     return NextResponse.json(
@@ -42,41 +25,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, taxRate } = body;
 
-    if (!name || taxRate === undefined) {
+    if (!name || typeof taxRate !== 'number') {
       return NextResponse.json(
         { error: 'Name and tax rate are required' },
         { status: 400 }
       );
     }
 
-    // Validate tax rate (should be between 0 and 1)
-    if (taxRate < 0 || taxRate > 1) {
-      return NextResponse.json(
-        { error: 'Tax rate must be between 0 and 1 (e.g., 0.08 for 8%)' },
-        { status: 400 }
-      );
-    }
+    const supabase = supabaseDb['client'];
+    const { data: taxCategory, error } = await supabase
+      .from('tax_categories')
+      .insert({
+        id: `tax_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name,
+        description,
+        taxRate: taxRate,
+        isActive: true,
+        updatedAt: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-    // Check if tax category with same name already exists
-    const existingCategory = await prisma.taxCategory.findFirst({
-      where: { name: { equals: name } }
-    });
-
-    if (existingCategory) {
-      return NextResponse.json(
-        { error: 'Tax category with this name already exists' },
-        { status: 409 }
-      );
-    }
-
-    const taxCategory = await prisma.taxCategory.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim(),
-        taxRate: parseFloat(taxRate)
-      }
-    });
-
+    if (error) throw error;
     return NextResponse.json(taxCategory, { status: 201 });
   } catch (error) {
     console.error('Error creating tax category:', error);

@@ -8,9 +8,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // Server-side Supabase client (for API routes)
 export const createServerSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE!
+  // Use service role key for server-side operations to bypass RLS
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE!
   
-  return createClient(supabaseUrl, supabaseServiceKey, {
+  return createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false

@@ -14,7 +14,7 @@ import MenuSearchBar from "@/components/orders/MenuSearchBar";
 import { OptimizedImage } from "@/components/ui/OptimizedImage";
 import { Category as ApiCategory } from "@/types/category";
 import { useBillingSettings } from "@/hooks/use-billing-settings";
-import { generateNextKOTNumber } from "@/lib/database/kot-numbering";
+import { supabaseDb } from '@/lib/database/supabase';
 import PaymentDrawer from "@/components/ui/PaymentDrawer";
 import OrderConfirmationMessage from "@/components/ui/OrderConfirmationMessage";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -101,6 +101,11 @@ export default function NewOrderPage() {
   
   // Fetch analytics data for popular products sorting
   const { data: analytics, error: analyticsError } = useAnalytics('month');
+
+  // Replace the generateNextKOTNumber import with a local function
+  const generateKOTNumber = () => {
+    return `KOT-${Date.now()}`;
+  };
   
   // Temporary debug - will remove after verification
   useEffect(() => {
@@ -659,7 +664,7 @@ export default function NewOrderPage() {
     try {
       // Generate KOT number if not exists
       if (!order.kotNumber) {
-        const kotNumber = await generateNextKOTNumber();
+        const kotNumber = generateKOTNumber();
         // Update order with KOT number - use any to bypass type checking for now
         await updateOrder.mutateAsync({
           orderId: order.id,

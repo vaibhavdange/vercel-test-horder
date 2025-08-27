@@ -30,7 +30,7 @@ export default function PrintSettings() {
       business: { name: 'Your Store' } as BillBusinessInfo,
       tax: { showSplitGST: true, gstRatePercent: 5 },
       extras: { showPaymentDetails: true },
-      footer: { thankYouText: 'Thank you for your order!' },
+      footer: { thankYouText: 'Thank you for your order!' }
     };
   });
   const [draft, setDraft] = useState<PrinterProfile>({

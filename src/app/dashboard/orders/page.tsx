@@ -70,7 +70,7 @@ export default function OrdersPage() {
   }, [searchQuery]);
 
   // Fetch orders from database using debounced search
-  const { data: orders = [], isLoading, error } = useOrders({
+  const { data: ordersData, isLoading, error } = useOrders({
     status: activeStatus === "All" ? undefined : 
             activeStatus === "Takeaway" ? undefined : // We'll filter takeaway and payment statuses on the frontend
             activeStatus === "Paid" ? undefined :
@@ -81,6 +81,12 @@ export default function OrdersPage() {
             activeStatus === "Service" ? "ready" : activeStatus,
     search: debouncedSearchQuery || undefined,
   });
+
+  // Ensure orders is always an array and each order has orderItems
+  const orders = (ordersData || []).map(order => ({
+    ...order,
+    orderItems: order.orderItems || []
+  }));
 
   // Filter orders based on active status
   const filteredOrders = useMemo(() => {
@@ -388,7 +394,7 @@ export default function OrdersPage() {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       customerId: order.customerId,
-      existingItems: order.orderItems.map((item: any) => ({
+      existingItems: (order.orderItems || []).map((item: any) => ({
         id: item.productId,
         name: item.productName,
         price: item.unitPrice,
@@ -614,7 +620,7 @@ export default function OrdersPage() {
                     <div className="col-span-6">Item</div>
                     <div className="col-span-4 text-amber-600">Notes</div>
                   </div>
-                  {order.orderItems.map((item: any, index: number) => (
+                  {(order.orderItems || []).map((item: any, index: number) => (
                     <div key={index} className="grid grid-cols-12 gap-2 py-1">
                       <div className="col-span-2 text-gray-600 font-mono text-xs">{item.quantity}</div>
                       <div className="col-span-6 text-gray-900 font-mono text-xs leading-tight">{item.productName}</div>

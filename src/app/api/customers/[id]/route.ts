@@ -1,7 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { supabaseDb } from "@/lib/database/supabase";
 
-const prisma = new PrismaClient();
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = supabaseDb['client'];
+    const { data: customer, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', params.id)
+      .single();
+
+    if (error || !customer) {
+      return NextResponse.json(
+        { error: "Customer not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(customer);
+  } catch (error) {
+    console.error("Failed to fetch customer:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch customer" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function PUT(
   request: NextRequest,
@@ -11,56 +38,55 @@ export async function PUT(
     const body = await request.json();
     const { name, email, phone, address } = body;
 
-    // Check if customer with same phone already exists (excluding current customer)
-    if (phone) {
-      const existingCustomer = await prisma.customer.findFirst({
-        where: {
-          phone,
-          id: { not: params.id },
-        },
-      });
-
-      if (existingCustomer) {
-        return NextResponse.json(
-          { error: "Customer with this phone number already exists" },
-          { status: 400 }
-        );
-      }
+    if (!name) {
+      return NextResponse.json(
+        { error: "Name is required" },
+        { status: 400 }
+      );
     }
 
-    // Check if customer with same email already exists (excluding current customer)
-    if (email) {
-      const existingCustomer = await prisma.customer.findFirst({
-        where: {
-          email,
-          id: { not: params.id },
-        },
-      });
-
-      if (existingCustomer) {
-        return NextResponse.json(
-          { error: "Customer with this email already exists" },
-          { status: 400 }
-        );
-      }
-    }
-
-    const customer = await prisma.customer.update({
-      where: { id: params.id },
-      data: {
+    const supabase = supabaseDb['client'];
+    const { data: customer, error } = await supabase
+      .from('customers')
+      .update({
         name,
         email,
         phone,
         address,
-        updatedAt: new Date(),
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
 
+    if (error) throw error;
     return NextResponse.json(customer);
   } catch (error) {
     console.error("Failed to update customer:", error);
     return NextResponse.json(
       { error: "Failed to update customer" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', params.id);
+
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete customer:", error);
+    return NextResponse.json(
+      { error: "Failed to delete customer" },
       { status: 500 }
     );
   }

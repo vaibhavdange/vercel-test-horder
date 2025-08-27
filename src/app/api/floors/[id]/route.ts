@@ -1,46 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database/prisma';
-import { CreateFloorRequest, UpdateFloorRequest } from '@/types/tables';
+import { supabaseDb } from '@/lib/database/supabase';
 
-// PUT /api/floors/[id] - Update a floor
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = supabaseDb['client'];
+    const { data: floor, error } = await supabase
+      .from('floors')
+      .select(`
+        *,
+        areas (*),
+        tables (*)
+      `)
+      .eq('id', params.id)
+      .single();
+
+    if (error || !floor) {
+      return NextResponse.json(
+        { error: 'Floor not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(floor);
+  } catch (error) {
+    console.error('Error fetching floor:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch floor' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const data: Partial<CreateFloorRequest & UpdateFloorRequest> = await request.json();
+    const body = await request.json();
+    const { name, description } = body;
 
-    const existing = await prisma.floor.findUnique({ where: { id } });
-    if (!existing) {
-      return NextResponse.json({ error: 'Floor not found' }, { status: 404 });
-    }
+    const supabase = supabaseDb['client'];
+    const { data: floor, error } = await supabase
+      .from('floors')
+      .update({
+        name,
+        description,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
 
-    // If updating name, ensure uniqueness
-    if (data.name && data.name !== existing.name) {
-      const conflict = await prisma.floor.findFirst({ where: { name: data.name } });
-      if (conflict) {
-        return NextResponse.json(
-          { error: 'Floor name already exists' },
-          { status: 409 }
-        );
-      }
-    }
-
-    const updated = await prisma.floor.update({
-      where: { id },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
-      },
-      include: {
-        areas: { include: { tables: true } },
-        tables: true,
-      },
-    });
-
-    return NextResponse.json(updated);
+    if (error) throw error;
+    return NextResponse.json(floor);
   } catch (error) {
     console.error('Error updating floor:', error);
     return NextResponse.json(
@@ -50,30 +65,19 @@ export async function PUT(
   }
 }
 
-// DELETE /api/floors/[id] - Delete a floor
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const supabase = supabaseDb['client'];
+    const { error } = await supabase
+      .from('floors')
+      .delete()
+      .eq('id', params.id);
 
-    const existing = await prisma.floor.findUnique({ where: { id }, include: { tables: true, areas: true } });
-    if (!existing) {
-      return NextResponse.json({ error: 'Floor not found' }, { status: 404 });
-    }
-
-    // Optional safety: prevent delete if there are tables
-    if (existing.tables.length > 0 || existing.areas.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete floor with existing areas or tables' },
-        { status: 400 }
-      );
-    }
-
-    await prisma.floor.delete({ where: { id } });
-
-    return NextResponse.json({ message: 'Floor deleted successfully' });
+    if (error) throw error;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting floor:', error);
     return NextResponse.json(

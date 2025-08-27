@@ -1,35 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { supabaseDb } from "@/lib/database/supabase";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
-    const phone = searchParams.get('phone');
 
-    const where: any = {};
+    let customers = await supabaseDb.getCustomers();
 
+    // Apply search filter if provided
     if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { email: { contains: search } },
-        { phone: { contains: search } },
-      ];
+      customers = customers.filter(customer => 
+        customer.name.toLowerCase().includes(search.toLowerCase()) ||
+        customer.phone?.includes(search) ||
+        customer.email?.toLowerCase().includes(search.toLowerCase())
+      );
     }
-
-    if (phone) {
-      where.phone = phone;
-    }
-
-    const customers = await prisma.customer.findMany({
-      where,
-      orderBy: {
-        name: 'asc',
-      },
-      take: phone ? 1 : 50, // Limit results for search, single result for phone lookup
-    });
 
     return NextResponse.json(customers);
   } catch (error) {
@@ -44,45 +30,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, phone, address } = body;
+    const { name, phone, email } = body;
 
-    // Check if customer with same phone already exists
-    if (phone) {
-      const existingCustomer = await prisma.customer.findUnique({
-        where: { phone },
-      });
-
-      if (existingCustomer) {
-        return NextResponse.json(
-          { error: "Customer with this phone number already exists" },
-          { status: 400 }
-        );
-      }
+    if (!name) {
+      return NextResponse.json(
+        { error: "Name is required" },
+        { status: 400 }
+      );
     }
 
-    // Check if customer with same email already exists
-    if (email) {
-      const existingCustomer = await prisma.customer.findUnique({
-        where: { email },
-      });
-
-      if (existingCustomer) {
-        return NextResponse.json(
-          { error: "Customer with this email already exists" },
-          { status: 400 }
-        );
-      }
-    }
-
-    const customer = await prisma.customer.create({
-      data: {
-        name,
-        email,
-        phone,
-        address,
-      },
-    });
-
+    const customer = await supabaseDb.createCustomer({ name, phone, email });
     return NextResponse.json(customer, { status: 201 });
   } catch (error) {
     console.error("Failed to create customer:", error);

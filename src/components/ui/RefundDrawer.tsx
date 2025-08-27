@@ -64,11 +64,16 @@ export default function RefundDrawer({ isOpen, onClose, order, onRefundComplete 
     },
   ];
 
+  // Use backend-provided orderItems when available; fallback to local items
+  const itemsForRefund: OrderItem[] = (order.orderItems && order.orderItems.length > 0)
+    ? order.orderItems
+    : (((order as any).items || []) as OrderItem[]);
+
   // Calculate refund amounts
   const getSelectedItemsTotal = (): number => {
     if (selectedItems.size === 0) return 0;
     
-    return order.orderItems.reduce((total, item) => {
+    return itemsForRefund.reduce((total, item) => {
       if (selectedItems.has(item.id)) {
         return total + (item.totalPrice || 0);
       }
@@ -103,7 +108,7 @@ export default function RefundDrawer({ isOpen, onClose, order, onRefundComplete 
 
     try {
       // Prepare refunded items data
-      const refundedItems: RefundedItem[] = order.orderItems
+      const refundedItems: RefundedItem[] = itemsForRefund
         .filter(item => selectedItems.size === 0 || selectedItems.has(item.id))
         .map(item => ({
           productId: item.productId,
@@ -224,7 +229,7 @@ export default function RefundDrawer({ isOpen, onClose, order, onRefundComplete 
               </p>
               
               <div className="space-y-2">
-                {order.orderItems.map((item) => (
+                {itemsForRefund.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => handleItemToggle(item.id)}
