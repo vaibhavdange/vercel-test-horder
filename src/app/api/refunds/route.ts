@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
     const refundNumber = `REF-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
     const supabase = supabaseDb['client'];
+    
+    // Start a transaction by creating the refund first
     const { data: refund, error } = await supabase
       .from('refunds')
       .insert({
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
         refundAmount: parseFloat(refundAmount),
         refundReason: refundReason,
         refundMethod: refundMethod || 'cash',
-        refundStatus: 'pending',
+        refundStatus: 'completed', // Set to completed immediately
         cashierId: cashierId || null,
         customerId: customerId || null,
         refundDate: new Date().toISOString(),
@@ -64,6 +66,21 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Update the order's payment status to refunded
+    const { error: orderUpdateError } = await supabase
+      .from('orders')
+      .update({
+        paymentStatus: 'refunded',
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (orderUpdateError) {
+      console.error("Failed to update order payment status:", orderUpdateError);
+      // Don't fail the refund if order update fails, but log it
+    }
+
     return NextResponse.json(refund, { status: 201 });
   } catch (error) {
     console.error("Failed to create refund:", error);

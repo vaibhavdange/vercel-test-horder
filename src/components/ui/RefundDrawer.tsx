@@ -5,6 +5,7 @@ import { X, CreditCard, DollarSign, QrCode, RotateCcw, Receipt, AlertCircle, Che
 import { Order, OrderItem } from "@/types/orders";
 import { RefundMethod, RefundedItem } from "@/types/transaction";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface RefundDrawerProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export default function RefundDrawer({ isOpen, onClose, order, onRefundComplete 
   
   // Currency formatter
   const { format } = useCurrency();
+  const queryClient = useQueryClient();
 
   const refundMethods: RefundMethodOption[] = [
     {
@@ -160,6 +162,9 @@ export default function RefundDrawer({ isOpen, onClose, order, onRefundComplete 
 
       setRefundStatus("success");
       setCompletedRefund(refund);
+      
+      // Invalidate orders query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       
       // Notify parent component
       onRefundComplete(refund.id);
