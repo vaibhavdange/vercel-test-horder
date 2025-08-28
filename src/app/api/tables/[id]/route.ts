@@ -47,14 +47,10 @@ export async function GET(
       );
     }
 
-    // Transform the data to ensure orders are sorted by creation date
-    const sortedOrders = (table.orders || [])
-      .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
+    // Filter out completed orders and keep only active ones
     const transformedTable = {
       ...table,
-      orders: sortedOrders
+      orders: table.orders?.filter((order: any) => order.status !== 'completed') || []
     };
 
     return NextResponse.json(transformedTable);
@@ -126,17 +122,13 @@ export async function PUT(
       .single();
 
     if (error) throw error;
-    
-    // Transform the data to ensure orders are sorted by creation date
-    const sortedOrders = (table.orders || [])
-      .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
+
+    // Filter out completed orders and keep only active ones
     const transformedTable = {
       ...table,
-      orders: sortedOrders
+      orders: table.orders?.filter((order: any) => order.status !== 'completed') || []
     };
-    
+
     return NextResponse.json(transformedTable);
   } catch (error) {
     console.error('Error updating table:', error);

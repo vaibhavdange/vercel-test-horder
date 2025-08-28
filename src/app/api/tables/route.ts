@@ -72,16 +72,13 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
     
-    // Transform the data to match frontend expectations and ensure orders are sorted by creation date
-    const sortedOrders = (table.orders || [])
-      .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
+    // Transform the data to match frontend expectations and filter out completed orders
     const transformedTable = {
       ...table,
       area: table.areas,
       floor: table.floors,
-      orders: sortedOrders, // Use the filtered and sorted orders
+      // Filter out completed orders and keep only active ones
+      orders: table.orders?.filter((order: any) => order.status !== 'completed') || [],
       // Remove the plural versions to avoid confusion
       areas: undefined,
       floors: undefined
@@ -149,16 +146,13 @@ export async function PATCH(request: NextRequest) {
 
     if (error) throw error;
     
-    // Transform the data to match frontend expectations and ensure orders are sorted by creation date
-    const sortedOrders = (table.orders || [])
-      .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
+    // Transform the data to match frontend expectations and filter out completed orders
     const transformedTable = {
       ...table,
       area: table.areas,
       floor: table.floors,
-      orders: sortedOrders, // Use the filtered and sorted orders
+      // Filter out completed orders and keep only active ones
+      orders: table.orders?.filter((order: any) => order.status !== 'completed') || [],
       // Remove the plural versions to avoid confusion
       areas: undefined,
       floors: undefined
