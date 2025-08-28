@@ -47,7 +47,17 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(table);
+    // Transform the data to ensure orders are sorted by creation date
+    const sortedOrders = (table.orders || [])
+      .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    const transformedTable = {
+      ...table,
+      orders: sortedOrders
+    };
+
+    return NextResponse.json(transformedTable);
   } catch (error) {
     console.error('Error fetching table:', error);
     return NextResponse.json(
@@ -116,7 +126,18 @@ export async function PUT(
       .single();
 
     if (error) throw error;
-    return NextResponse.json(table);
+    
+    // Transform the data to ensure orders are sorted by creation date
+    const sortedOrders = (table.orders || [])
+      .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    const transformedTable = {
+      ...table,
+      orders: sortedOrders
+    };
+    
+    return NextResponse.json(transformedTable);
   } catch (error) {
     console.error('Error updating table:', error);
     return NextResponse.json(

@@ -697,15 +697,23 @@ export class SupabaseDatabase {
 
       if (error) throw error;
       
-      // Transform the data to match frontend expectations
-      const transformedData = data?.map((table: any) => ({
-        ...table,
-        area: table.areas,
-        floor: table.floors,
-        // Remove the plural versions to avoid confusion
-        areas: undefined,
-        floors: undefined
-      })) || [];
+      // Transform the data to match frontend expectations and ensure orders are sorted by creation date
+      const transformedData = data?.map((table: any) => {
+        // Sort orders by creation date (newest first) and filter out completed/cancelled orders
+        const sortedOrders = (table.orders || [])
+          .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        return {
+          ...table,
+          area: table.areas,
+          floor: table.floors,
+          orders: sortedOrders, // Use the filtered and sorted orders
+          // Remove the plural versions to avoid confusion
+          areas: undefined,
+          floors: undefined
+        };
+      }) || [];
       
       return transformedData;
     } catch (error) {
@@ -754,11 +762,16 @@ export class SupabaseDatabase {
 
       if (error) throw error;
       
-      // Transform the data to match frontend expectations
+      // Transform the data to match frontend expectations and ensure orders are sorted by creation date
+      const sortedOrders = (data.orders || [])
+        .filter((order: any) => order.status !== 'completed' && order.status !== 'cancelled')
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
       const transformedData = {
         ...data,
         area: data.areas,
         floor: data.floors,
+        orders: sortedOrders, // Use the filtered and sorted orders
         // Remove the plural versions to avoid confusion
         areas: undefined,
         floors: undefined

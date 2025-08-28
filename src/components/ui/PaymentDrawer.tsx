@@ -384,12 +384,6 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
               taxAmount: taxAmountCalc,
               totalAmount: finalTotal,
               paymentStatus: 'paid',
-              // Store tax breakdown for bill printing (calculated on discounted subtotal)
-              taxBreakdown: billingConfig.taxTypes.length > 0 ? billingConfig.taxTypes.map(taxType => ({
-                name: taxType.name,
-                ratePercent: taxType.ratePercent,
-                amount: subtotalAfterDiscount * ((Number(taxType.ratePercent) || 0) / 100)
-              })) : undefined,
             }),
           });
         } catch {}

@@ -273,6 +273,8 @@ export async function printBillFromOrder(order: any, isPaid: boolean, paymentDet
       return;
     }
 
+
+
     // Fetch printers/bill settings from backend; fallback to localStorage
     let billSettings: any = {};
     try {
@@ -301,28 +303,34 @@ export async function printBillFromOrder(order: any, isPaid: boolean, paymentDet
         const map: Record<string, string> = {};
         for (const r of rows || []) map[r.key] = r.value;
         billingSettings = map;
-      }
-    } catch {}
 
+      }
+    } catch (error) {
+      console.error('Failed to load billing settings:', error);
+    }
+
+    // Calculate amounts following accounting standards
+    const subtotal = order.subtotal || 0;
+    const discount = order.discountAmount || 0;
+    const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+    
+    // Calculate service charge if enabled
+    const serviceChargeEnabled = billingSettings['service_charge_enabled'] === 'true';
+    const serviceChargeRate = parseFloat(billingSettings['default_service_charge_rate'] || '0');
+    const calculatedServiceCharge = serviceChargeEnabled ? (subtotalAfterDiscount * (serviceChargeRate / 100)) : 0;
+    
+
+    
     const taxLines = (() => {
       try {
-        // First try to use stored tax breakdown from order
-        if (order.taxBreakdown && Array.isArray(order.taxBreakdown)) {
-          return order.taxBreakdown.map((t: any) => ({ 
-            name: String(t.name || ''), 
-            amount: Math.round((Number(t.amount) || 0) * 100) / 100 
-          }));
-        }
-        
-        // Then try to get tax types from billing settings
+        // Get tax types from billing settings
         const taxEnabled = billingSettings['tax_enabled'] === 'true';
         if (taxEnabled && billingSettings['tax_types']) {
           const parsed = JSON.parse(billingSettings['tax_types']);
           if (Array.isArray(parsed)) {
-            const subtotal = order.subtotal || 0;
             return parsed.map((t: any) => ({ 
               name: String(t.name || ''), 
-              amount: Math.round((subtotal * ((Number(t.ratePercent)||0)/100)) * 100) / 100 
+              amount: Math.round((subtotalAfterDiscount * ((Number(t.ratePercent)||0)/100)) * 100) / 100 
             }));
           }
         }
@@ -330,10 +338,11 @@ export async function printBillFromOrder(order: any, isPaid: boolean, paymentDet
         const taxTypesRaw = (billSettings && billSettings.tax_types) ? billSettings.tax_types : (billSettings?.tax?.lines ? billSettings.tax.lines : null);
         const parsed = typeof taxTypesRaw === 'string' ? JSON.parse(taxTypesRaw) : taxTypesRaw;
         if (Array.isArray(parsed)) {
-          const subtotal = order.subtotal || 0;
-          return parsed.map((t: any) => ({ name: String(t.name || ''), amount: Math.round((subtotal * ((Number(t.ratePercent)||0)/100)) * 100) / 100 }));
+          return parsed.map((t: any) => ({ name: String(t.name || ''), amount: Math.round((subtotalAfterDiscount * ((Number(t.ratePercent)||0)/100)) * 100) / 100 }));
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error calculating tax lines:', error);
+      }
       return undefined;
     })();
 
@@ -346,7 +355,7 @@ export async function printBillFromOrder(order: any, isPaid: boolean, paymentDet
       customerPhone: order.customerPhone,
       subtotal: order.subtotal,
       taxAmount: order.taxAmount,
-      serviceChargeAmount: order.serviceChargeAmount,
+      serviceChargeAmount: calculatedServiceCharge || order.serviceChargeAmount,
       discountAmount: order.discountAmount,
       totalAmount: order.totalAmount,
       isPaid,
