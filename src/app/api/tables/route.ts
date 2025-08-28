@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
         status: status || 'available',
         displayOrder: 0,
         isActive: true,
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
       .select(`

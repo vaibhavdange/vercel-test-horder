@@ -109,6 +109,8 @@ export default function TablesPage() {
     updateFloorMutation,
     updateAreaMutation,
     updateTableOrderMutation,
+    deleteFloorMutation,
+    deleteAreaMutation,
   } = useTables();
 
   // Initialize table order when tables are loaded
@@ -701,12 +703,10 @@ export default function TablesPage() {
               updateTableMutation.mutate({ id, ...data }, { onSuccess: () => setShowManagementModal(false) });
             }}
             onDeleteFloor={(id) => {
-              // TODO: Implement floor delete mutation
-              console.log('Delete floor:', id);
+              deleteFloorMutation.mutate(id, { onSuccess: () => setShowManagementModal(false) });
             }}
             onDeleteArea={(id) => {
-              // TODO: Implement area delete mutation
-              console.log('Delete area:', id);
+              deleteAreaMutation.mutate(id, { onSuccess: () => setShowManagementModal(false) });
             }}
             onDeleteTable={(id) => {
               deleteTableMutation.mutate(id, { onSuccess: () => setShowManagementModal(false) });
@@ -1713,53 +1713,8 @@ function ManagementModal({
                   </div>
                 )}
 
-                {editingItem?.type === 'area' && (
-                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">
-                    <div className="bg-white p-6 rounded-lg w-96">
-                      <h4 className="font-medium mb-3">Edit Area</h4>
-                      <div className="space-y-3">
-                        <input
-                          type="text"
-                          placeholder="Area name"
-                          value={editingItem.data.name}
-                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                        <select
-                          value={editingItem.data.floorId}
-                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, floorId: e.target.value } })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        >
-                          {floors.map((floor) => (
-                            <option key={floor.id} value={floor.id}>{floor.name}</option>
-                          ))}
-                        </select>
-                        <input
-                          type="text"
-                          placeholder="Description (optional)"
-                          value={editingItem.data.description || ''}
-                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, description: e.target.value } })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleUpdate}
-                            disabled={!editingItem.data.name || !editingItem.data.floorId}
-                            className="bg-emerald-600 text-white px-4 py-2 rounded-full hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            Update
-                          </button>
-                          <button
-                            onClick={() => setEditingItem(null)}
-                            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-400"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
+
               </div>
             )}
 
@@ -1852,6 +1807,54 @@ function ManagementModal({
                     </div>
                   ))}
                 </div>
+
+                {editingItem?.type === 'area' && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">
+                    <div className="bg-white p-6 rounded-lg w-96">
+                      <h4 className="font-medium mb-3">Edit Area</h4>
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          placeholder="Area name"
+                          value={editingItem.data.name}
+                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, name: e.target.value } })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <select
+                          value={editingItem.data.floorId}
+                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, floorId: e.target.value } })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          {floors.map((floor) => (
+                            <option key={floor.id} value={floor.id}>{floor.name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Description (optional)"
+                          value={editingItem.data.description || ''}
+                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, description: e.target.value } })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleUpdate}
+                            disabled={!editingItem.data.name || !editingItem.data.floorId}
+                            className="bg-emerald-600 text-white px-4 py-2 rounded-full hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Update
+                          </button>
+                          <button
+                            onClick={() => setEditingItem(null)}
+                            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-400"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1953,6 +1956,63 @@ function ManagementModal({
                     </div>
                   ))}
                 </div>
+
+                {editingItem?.type === 'table' && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-60">
+                    <div className="bg-white p-6 rounded-lg w-96">
+                      <h4 className="font-medium mb-3">Edit Table</h4>
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          placeholder="Table number"
+                          value={editingItem.data.tableNumber}
+                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, tableNumber: e.target.value } })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Capacity"
+                          value={editingItem.data.capacity}
+                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, capacity: parseInt(e.target.value) } })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <select
+                          value={editingItem.data.floorId}
+                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, floorId: e.target.value } })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          {floors.map((floor) => (
+                            <option key={floor.id} value={floor.id}>{floor.name}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={editingItem.data.areaId}
+                          onChange={(e) => setEditingItem({ ...editingItem, data: { ...editingItem.data, areaId: e.target.value } })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          {areas.map((area) => (
+                            <option key={area.id} value={area.id}>{area.name}</option>
+                          ))}
+                        </select>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleUpdate}
+                            disabled={!editingItem.data.tableNumber || !editingItem.data.floorId || !editingItem.data.areaId}
+                            className="bg-emerald-600 text-white px-4 py-2 rounded-full hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Update
+                          </button>
+                          <button
+                            onClick={() => setEditingItem(null)}
+                            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-400"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

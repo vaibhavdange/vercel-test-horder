@@ -26,7 +26,7 @@ export async function GET(
           customerName,
           customerPhone,
           customerId,
-          orderItems (
+          order_items (
             id,
             productId,
             productName,
@@ -82,13 +82,12 @@ export async function PUT(
     const { data: table, error } = await supabase
       .from('tables')
       .update({
-        table_number: tableNumber,
+        tableNumber: tableNumber,
         capacity: capacity || 4,
-        area_id: areaId,
-        floor_id: floorId,
+        areaId: areaId,
+        floorId: floorId,
         status: status || 'available',
-        position: position || { x: 0, y: 0 },
-        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
       .eq('id', params.id)
       .select(`
@@ -108,7 +107,7 @@ export async function PUT(
           customerName,
           customerPhone,
           customerId,
-          orderItems (
+          order_items (
             id,
             productId,
             productName,
