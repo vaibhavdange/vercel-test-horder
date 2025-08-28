@@ -53,7 +53,6 @@ interface OrderItem {
 interface DisplayCategory {
   id: string;
   name: string;
-  count: number;
   icon: string;
 }
 
@@ -107,13 +106,7 @@ export default function NewOrderPage() {
     return `KOT-${Date.now()}`;
   };
   
-  // Temporary debug - will remove after verification
-  useEffect(() => {
-    console.log('🔍 Products data updated:', {
-      allProductsCount: allProducts.length,
-      allProducts: allProducts.map(p => ({ id: p.id, name: p.name, isActive: p.isActive }))
-    });
-  }, [allProducts]);
+
 
   // Fetch tables from database
   const { tables, getAvailableTables, tablesLoading } = useTables();
@@ -382,13 +375,11 @@ export default function NewOrderPage() {
     { 
       id: "All", 
       name: "All", 
-      count: allProducts.length, 
       icon: "🍽️" 
     },
     ...categories.map((cat: ApiCategory) => ({
       id: cat.id,
       name: cat.name,
-      count: (cat as any)._count?.products || 0,
       icon: cat.icon || "🍴" // Use the actual icon from database, fallback to 🍴
     }))
   ];
@@ -1103,8 +1094,7 @@ export default function NewOrderPage() {
                   >
                     <div className="text-center h-full flex flex-col items-center justify-center p-4">
                       <div className="text-4xl mb-3">{category.icon}</div>
-                      <div className="font-semibold text-sm mb-1">{category.name}</div>
-                      <div className="text-xs text-gray-500">{category.count} items</div>
+                      <div className="font-semibold text-base">{category.name}</div>
                     </div>
                   </button>
                 ))}

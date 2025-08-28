@@ -12,6 +12,7 @@ const nextConfig = {
       },
     },
   },
+  // TODO: FIXME - These should be removed after fixing all TypeScript errors
   // Temporarily ignore type and lint errors during builds to allow incremental migration
   typescript: {
     ignoreBuildErrors: true,

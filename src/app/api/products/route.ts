@@ -7,13 +7,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('categoryId');
     const search = searchParams.get('search');
+    const includeInactive = searchParams.get('includeInactive') === 'true';
 
     const products = await supabaseDb.getProducts({
       categoryId: categoryId || undefined,
       search: search || undefined,
-      isActive: true,
+      isActive: includeInactive ? undefined : true,
     });
-
     return NextResponse.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);

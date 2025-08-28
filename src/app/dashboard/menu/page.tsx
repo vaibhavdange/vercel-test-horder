@@ -24,6 +24,7 @@ export default function MenuPage() {
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [showInactiveItems, setShowInactiveItems] = useState(false);
   
   // Bulk actions state
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -40,7 +41,8 @@ export default function MenuPage() {
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   const { data: products = [], isLoading: productsLoading } = useProducts(
     activeCategory === "All" ? undefined : activeCategory,
-    searchTerm
+    searchTerm,
+    showInactiveItems
   );
 
   // Mutations
@@ -74,6 +76,7 @@ export default function MenuPage() {
     taxRate: "0.0",
     image: "",
     thumbnail: "",
+    isActive: true,
     extras: [] as { name: string; price: string; stockItemId?: string }[],
   });
 
@@ -261,7 +264,7 @@ export default function MenuPage() {
       setShowAddProduct(false);
       setProductForm({
         name: "", description: "", price: "", cost: "", stockQuantity: "", 
-        minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", extras: []
+        minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, extras: []
       });
     } catch (error) {
       console.error("Failed to create product:", error);
@@ -283,6 +286,7 @@ export default function MenuPage() {
       taxRate: product.taxRate.toString(),
       image: product.image || "",
       thumbnail: product.thumbnail || "",
+      isActive: product.isActive,
       extras: ((product as any).extras || []).map((e: any) => ({
         name: e.name,
         price: String(e.price ?? 0),
@@ -489,7 +493,7 @@ export default function MenuPage() {
         {/* Categories Section */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Categories</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Manage Categories</h2>
             <button
               onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", icon: "🍴" }); setShowEmojiPicker(false); setShowEmojiPickerEdit(false); setShowAddCategory(true); }}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
@@ -543,10 +547,10 @@ export default function MenuPage() {
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">
-              {activeCategory === "All" ? "All Menu Items" : `Items in ${categories.find(c => c.id === activeCategory)?.name || 'Category'}`}
+              {activeCategory === "All" ? "Manage Menu Items" : `Items in ${categories.find(c => c.id === activeCategory)?.name || 'Category'}`}
             </h2>
             <button 
-              onClick={() => { setSelectedProduct(null); setProductForm({ name: "", description: "", price: "", cost: "", stockQuantity: "", minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", extras: [] }); setShowAddProduct(true); }}
+              onClick={() => { setSelectedProduct(null); setProductForm({ name: "", description: "", price: "", cost: "", stockQuantity: "", minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, extras: [] }); setShowAddProduct(true); }}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
@@ -569,6 +573,16 @@ export default function MenuPage() {
             <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2">
               <Filter className="h-4 w-4" />
               <span>Filter</span>
+            </button>
+            <button 
+              onClick={() => setShowInactiveItems(!showInactiveItems)}
+              className={`px-4 py-2 border rounded-lg transition-colors duration-200 flex items-center space-x-2 ${
+                showInactiveItems 
+                  ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" 
+                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <span>{showInactiveItems ? "Hide" : "Show"} Inactive Items</span>
             </button>
           </div>
 
@@ -637,10 +651,10 @@ export default function MenuPage() {
                   </th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Product</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Product Name</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Item ID</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Stock</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Category</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Price</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Availability</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
                 </tr>
@@ -685,13 +699,12 @@ export default function MenuPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                                            <td className="py-4 px-4">
                       <div>
                             <div className="font-medium text-gray-900">{product.name}</div>
                             <div className="text-sm text-gray-500">{product.description}</div>
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-sm text-gray-600">{product.id}</td>
                         <td className="py-4 px-4 text-sm text-gray-600">
                           <span className={product.stockQuantity <= product.minStockLevel ? "text-red-600 font-medium" : ""}>
                             {product.stockQuantity}
@@ -704,15 +717,24 @@ export default function MenuPage() {
                       </div>
                     </td>
                         <td className="py-4 px-4 font-medium text-gray-900">{format(product.price)}</td>
-                    <td className="py-4 px-4">
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            product.isActive
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}>
+                            {product.isActive ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             product.isActive && product.stockQuantity > 0
                               ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
                           }`}>
                             {product.isActive && product.stockQuantity > 0 ? "In Stock" : "Out of Stock"}
-                      </span>
-                    </td>
+                          </span>
+                        </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center space-x-2">
                             <button 
@@ -1036,6 +1058,18 @@ export default function MenuPage() {
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={productForm.isActive ? "true" : "false"}
+                  onChange={(e) => setProductForm({ ...productForm, isActive: e.target.value === "true" })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </div>
+              
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Image</label>
                 <ImageUpload
@@ -1192,6 +1226,18 @@ export default function MenuPage() {
                   onChange={(e) => setProductForm({ ...productForm, taxRate: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Status</label>
+                <select
+                  value={productForm.isActive ? "true" : "false"}
+                  onChange={(e) => setProductForm({ ...productForm, isActive: e.target.value === "true" })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
               </div>
               
               <div className="col-span-2">

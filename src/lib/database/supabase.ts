@@ -55,7 +55,7 @@ export class SupabaseDatabase {
       if (filters?.isActive !== undefined) {
         query = query.eq('isActive', filters.isActive);
       } else {
-        query = query.eq('isActive', true);
+        // Don't filter by isActive - show all products
       }
 
       const { data, error } = await query.order('name', { ascending: true });

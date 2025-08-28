@@ -280,7 +280,7 @@ export default function DeliveryView({ isOpen, onClose }: DeliveryViewProps) {
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Order Items</h4>
                 <div className="space-y-2">
-                  {selectedDelivery.orderItems.map((item) => (
+                  {selectedDelivery.orderItems?.map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                       <div>
                         <p className="font-medium text-sm">{item.quantity}x {item.productName}</p>

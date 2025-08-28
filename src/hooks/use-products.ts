@@ -4,13 +4,14 @@ import { Product, CreateProductData, UpdateProductData } from '@/types/product';
 const API_BASE = '/api/products';
 
 // Get all products
-export const useProducts = (categoryId?: string, search?: string) => {
+export const useProducts = (categoryId?: string, search?: string, includeInactive?: boolean) => {
   return useQuery({
-    queryKey: ['products', categoryId, search],
+    queryKey: ['products', categoryId, search, includeInactive],
     queryFn: async (): Promise<Product[]> => {
       const params = new URLSearchParams();
       if (categoryId) params.append('categoryId', categoryId);
       if (search) params.append('search', search);
+      if (includeInactive) params.append('includeInactive', 'true');
       
       const response = await fetch(`${API_BASE}?${params.toString()}`);
       if (!response.ok) {

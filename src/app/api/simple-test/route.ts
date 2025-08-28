@@ -14,7 +14,7 @@ export async function GET() {
 
     // Test if tables exist
     const tablesToCheck = ['floors', 'areas', 'tables', 'orders', 'customers', 'products'];
-    const tableStatus = {};
+    const tableStatus: Record<string, any> = {};
 
     for (const tableName of tablesToCheck) {
       try {
