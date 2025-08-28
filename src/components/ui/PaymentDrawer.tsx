@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus } from "lucide-react";
+import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus, Banknote } from "lucide-react";
 import { printBillFromOrder } from "@/lib/print/bill";
 import { useCurrency } from "@/hooks/useCurrency";
 import { NumericKeypad } from "./NumericKeypad";
@@ -142,21 +142,70 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   };
 
   const paymentMethods: PaymentMethod[] = [
-    { id: "cash", name: "Cash", type: "cash", isActive: true, icon: <DollarSign className="h-5 w-5" /> },
+    { id: "cash", name: "Cash", type: "cash", isActive: true, icon: <Banknote className="h-5 w-5" /> },
     { id: "card", name: "Card", type: "card", isActive: true, icon: <CreditCard className="h-5 w-5" /> },
     { id: "qr", name: "QR", type: "digital", isActive: true, icon: <QrCode className="h-5 w-5" /> },
   ];
 
-  // Calculate totals with discount (no tips currently)
-  const totalWithServiceCharge = (order.totalAmount || 0) + (order.serviceChargeAmount || 0);
+  // Load billing settings for tax/service calculation
+  const [billingConfig, setBillingConfig] = useState<{ taxEnabled: boolean; serviceEnabled: boolean; defaultTaxRate: number; defaultServiceRate: number; taxTypes: Array<{ name: string; ratePercent: number }> }>({ taxEnabled: true, serviceEnabled: true, defaultTaxRate: 0, defaultServiceRate: 0, taxTypes: [] });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/billing-settings');
+        if (!res.ok) return;
+        const rows = await res.json();
+        const map: Record<string, string> = {};
+        for (const r of rows || []) map[r.key] = r.value;
+        if (cancelled) return;
+        const cfg = {
+          taxEnabled: map['tax_enabled'] ? map['tax_enabled'] === 'true' : true,
+          serviceEnabled: map['service_charge_enabled'] ? map['service_charge_enabled'] === 'true' : true,
+          defaultTaxRate: map['default_tax_rate'] ? parseFloat(map['default_tax_rate']) || 0 : 0,
+          defaultServiceRate: map['default_service_charge_rate'] ? parseFloat(map['default_service_charge_rate']) || 0 : 0,
+          taxTypes: (() => { try { const t = JSON.parse(map['tax_types'] || '[]'); return Array.isArray(t) ? t : []; } catch { return []; } })(),
+        };
+        setBillingConfig(cfg);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Compute subtotal from items (fallback) if missing
+  const computedSubtotal = (() => {
+    const items = (order.orderItems && order.orderItems.length > 0)
+      ? order.orderItems
+      : (((order as any).items || []) as OrderItem[]);
+    const sum = items.reduce((acc, it) => acc + (it.quantity || 0) * (it.unitPrice || 0), 0);
+    return typeof order.subtotal === 'number' ? order.subtotal : sum;
+  })();
+
+
+  // Calculate totals following accounting standards: Subtotal → Discount → Tax → Service Charge → Total
   const parsedDiscount = parseFloat(discountInput);
   const discountNumeric = Number.isFinite(parsedDiscount) ? parsedDiscount : 0;
   const calculatedDiscountAmount = isDiscountEnabled
     ? (discountMode === "percent"
-        ? Math.min(100, Math.max(0, discountNumeric)) / 100 * totalWithServiceCharge
-        : Math.min(Math.max(0, discountNumeric), totalWithServiceCharge))
+        ? Math.min(100, Math.max(0, discountNumeric)) / 100 * computedSubtotal  // Apply to subtotal only
+        : Math.min(Math.max(0, discountNumeric), computedSubtotal))  // Apply to subtotal only
     : 0;
-  const finalTotal = Math.max(0, totalWithServiceCharge - calculatedDiscountAmount);
+  
+  // Calculate amounts after discount
+  const subtotalAfterDiscount = Math.max(0, computedSubtotal - calculatedDiscountAmount);
+  
+  // Calculate tax and service charge on discounted subtotal
+  const serviceChargeAmountCalc = billingConfig.serviceEnabled ? (subtotalAfterDiscount * (billingConfig.defaultServiceRate / 100)) : 0;
+  const taxAmountCalc = billingConfig.taxEnabled
+    ? (
+        (billingConfig.taxTypes.length > 0
+          ? billingConfig.taxTypes.reduce((sum, t) => sum + (subtotalAfterDiscount * ((Number(t.ratePercent) || 0) / 100)), 0)
+          : subtotalAfterDiscount * (billingConfig.defaultTaxRate / 100)
+        )
+      )
+    : 0;
+  
+  const finalTotal = subtotalAfterDiscount + serviceChargeAmountCalc + taxAmountCalc;
   const changeDue = Math.max(0, (cashReceived || 0) - (finalTotal || 0));
   const amountRemaining = Math.max(0, (finalTotal || 0) - (cashReceived || 0));
   const exactCashAmount = finalTotal;
@@ -323,6 +372,27 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
         setCurrentSplitIndex((prev) => prev + 1);
         return;
       } else {
+        // Persist updated order totals (service charge, tax, total)
+        try {
+          await fetch(`/api/orders/${order.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subtotal: computedSubtotal,
+              discountAmount: calculatedDiscountAmount,
+              serviceChargeAmount: serviceChargeAmountCalc,
+              taxAmount: taxAmountCalc,
+              totalAmount: finalTotal,
+              paymentStatus: 'paid',
+              // Store tax breakdown for bill printing (calculated on discounted subtotal)
+              taxBreakdown: billingConfig.taxTypes.length > 0 ? billingConfig.taxTypes.map(taxType => ({
+                name: taxType.name,
+                ratePercent: taxType.ratePercent,
+                amount: subtotalAfterDiscount * ((Number(taxType.ratePercent) || 0) / 100)
+              })) : undefined,
+            }),
+          });
+        } catch {}
         setPaymentStatus("success");
         setCompletedTransaction(transaction);
         setShowReceipt(true);
@@ -372,6 +442,9 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   })();
   const totalSplitsSelected = splitPayments.length > 0 ? splitPayments.length : (parsedCustomSplits >= 2 && parsedCustomSplits <= 10 ? parsedCustomSplits : 0);
   const currentSplitDisplay = totalSplitsSelected > 0 ? (splitPayments.length > 0 ? (currentSplitIndex + 1) : 1) : 0;
+  
+  // Check if split buttons should be disabled (after first split is completed)
+  const shouldDisableSplitButtons = isSplitPayment && splitPayments.length > 0 && currentSplitIndex > 0;
 
   if (!isOpen) return null;
 
@@ -460,17 +533,33 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                     <div className="border-t border-gray-100 pt-3 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Subtotal:</span>
-                        <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(order.subtotal || 0)}</span>
+                        <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(computedSubtotal || 0)}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Tax:</span>
-                        <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(order.taxAmount || 0)}</span>
-                      </div>
-                      {(order.serviceChargeAmount || 0) > 0 && (
+                      {billingConfig.serviceEnabled && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Service Charge:</span>
-                          <span className="text-orange-600">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(order.serviceChargeAmount || 0)}</span>
+                          <span className="text-orange-600">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(serviceChargeAmountCalc || 0)}</span>
                         </div>
+                      )}
+                      {billingConfig.taxEnabled && (
+                        billingConfig.taxTypes.length > 0 ? (
+                          // Show individual tax types
+                          billingConfig.taxTypes.map((taxType, index) => {
+                            const taxAmount = computedSubtotal * ((Number(taxType.ratePercent) || 0) / 100);
+                            return (
+                              <div key={index} className="flex justify-between text-sm">
+                                <span className="text-gray-600">{taxType.name}:</span>
+                                <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmount || 0)}</span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          // Show default tax
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Tax:</span>
+                            <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmountCalc || 0)}</span>
+                          </div>
+                        )
                       )}
                       {(isDiscountEnabled ? calculatedDiscountAmount : (order.discountAmount || 0)) > 0 && (
                         <div className="flex justify-between text-sm">
@@ -528,11 +617,13 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                             setCurrentSplitIndex(0);
                             setSelectedPaymentMethod(null);
                           }}
-                          disabled={showReceipt}
+                          disabled={showReceipt || shouldDisableSplitButtons}
                           className={`py-2 px-3 rounded-lg transition-colors duration-200 ${
                             splitPayments.length === num
                               ? "bg-green-100 text-green-800 border border-green-300"
-                              : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                              : shouldDisableSplitButtons
+                                ? "bg-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed"
+                                : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
                           }`}
                         >
                           <span className="text-sm font-medium">{num}</span>
@@ -544,11 +635,13 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                         max="10"
                         value={customSplitInput}
                         placeholder="Custom"
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm text-center"
+                        className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm text-center ${
+                          shouldDisableSplitButtons ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""
+                        }`}
                         onChange={(e) => {
                           setCustomSplitInput(e.target.value);
                         }}
-                        disabled={showReceipt}
+                        disabled={showReceipt || shouldDisableSplitButtons}
                       />
                     </div>
 
@@ -574,7 +667,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                             setSelectedPaymentMethod(null);
                           }
                         }}
-                        disabled={showReceipt || !customSplitInput || parseInt(customSplitInput) < 2 || parseInt(customSplitInput) > 10}
+                        disabled={showReceipt || shouldDisableSplitButtons || !customSplitInput || parseInt(customSplitInput) < 2 || parseInt(customSplitInput) > 10}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Split

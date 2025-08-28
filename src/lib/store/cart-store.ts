@@ -154,7 +154,9 @@ export const useCartStore = create<CartStore>()(
       
       get total() {
         const { subtotal, taxAmount, discountAmount } = get();
-        return Math.max(0, subtotal + taxAmount - discountAmount);
+        // Apply discount to subtotal first, then add tax (accounting standard)
+        const subtotalAfterDiscount = Math.max(0, subtotal - discountAmount);
+        return subtotalAfterDiscount + taxAmount;
       },
       
       get itemCount() {

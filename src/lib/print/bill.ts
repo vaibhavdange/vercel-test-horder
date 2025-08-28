@@ -20,6 +20,7 @@ export interface BillTaxConfig {
   cgstAmount?: number;
   sgstAmount?: number;
   igstAmount?: number; // if provided, show IGST instead of split
+  lines?: Array<{ name: string; amount: number }>; // multiple tax lines (e.g., CGST, SGST, VAT)
 }
 
 export interface BillExtrasConfig {
@@ -121,7 +122,9 @@ export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions
   const discount = order.discountAmount || 0;
   const subtotal = order.subtotal || 0;
   const taxAmount = order.taxAmount || 0;
-  const total = order.totalAmount || (subtotal + service + taxAmount - discount);
+  // Calculate total following accounting standards: (subtotal - discount) + service + tax
+  const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+  const total = order.totalAmount || (subtotalAfterDiscount + service + taxAmount);
 
   const showSplit = !!order.tax?.showSplitGST && (order.tax?.igstAmount || 0) === 0;
   const cgst = showSplit ? (order.tax?.cgstAmount ?? taxAmount / 2) : 0;
@@ -144,12 +147,18 @@ export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions
       ${it.notes ? `<div class="notes">${it.notes}</div>` : ''}
   `).join('');
 
-  const gstHTML = igst > 0
-    ? `<div class="row"><div class="col label">IGST</div><div class="col amount">${inr(igst)}</div></div>`
-    : showSplit
-      ? `<div class="row"><div class="col label">CGST</div><div class="col amount">${inr(cgst)}</div></div>
-         <div class="row"><div class="col label">SGST</div><div class="col amount">${inr(sgst)}</div></div>`
-      : `<div class="row"><div class="col label">Tax</div><div class="col amount">${inr(taxAmount)}</div></div>`;
+  // Build tax lines: prefer explicit lines; fallback to split or single tax
+  let gstHTML = '';
+  if (Array.isArray(order.tax?.lines) && (order.tax?.lines || []).length > 0) {
+    gstHTML = (order.tax?.lines || []).map(l => `<div class="row"><div class="col label">${l.name}</div><div class="col amount">${inr(l.amount || 0)}</div></div>`).join('\n');
+  } else {
+    gstHTML = igst > 0
+      ? `<div class="row"><div class="col label">IGST</div><div class="col amount">${inr(igst)}</div></div>`
+      : showSplit
+        ? `<div class="row"><div class="col label">CGST</div><div class="col amount">${inr(cgst)}</div></div>
+           <div class="row"><div class="col label">SGST</div><div class="col amount">${inr(sgst)}</div></div>`
+        : `<div class="row"><div class="col label">Tax</div><div class="col amount">${inr(taxAmount)}</div></div>`;
+  }
 
   const payHTML = order.extras?.showPaymentDetails ? `
     <div class="section">
@@ -283,6 +292,51 @@ export async function printBillFromOrder(order: any, isPaid: boolean, paymentDet
       } catch {}
     }
 
+    // Fetch billing settings for tax configuration
+    let billingSettings: any = {};
+    try {
+      const res = await fetch('/api/billing-settings');
+      if (res.ok) {
+        const rows = await res.json();
+        const map: Record<string, string> = {};
+        for (const r of rows || []) map[r.key] = r.value;
+        billingSettings = map;
+      }
+    } catch {}
+
+    const taxLines = (() => {
+      try {
+        // First try to use stored tax breakdown from order
+        if (order.taxBreakdown && Array.isArray(order.taxBreakdown)) {
+          return order.taxBreakdown.map((t: any) => ({ 
+            name: String(t.name || ''), 
+            amount: Math.round((Number(t.amount) || 0) * 100) / 100 
+          }));
+        }
+        
+        // Then try to get tax types from billing settings
+        const taxEnabled = billingSettings['tax_enabled'] === 'true';
+        if (taxEnabled && billingSettings['tax_types']) {
+          const parsed = JSON.parse(billingSettings['tax_types']);
+          if (Array.isArray(parsed)) {
+            const subtotal = order.subtotal || 0;
+            return parsed.map((t: any) => ({ 
+              name: String(t.name || ''), 
+              amount: Math.round((subtotal * ((Number(t.ratePercent)||0)/100)) * 100) / 100 
+            }));
+          }
+        }
+        // Fallback to bill settings
+        const taxTypesRaw = (billSettings && billSettings.tax_types) ? billSettings.tax_types : (billSettings?.tax?.lines ? billSettings.tax.lines : null);
+        const parsed = typeof taxTypesRaw === 'string' ? JSON.parse(taxTypesRaw) : taxTypesRaw;
+        if (Array.isArray(parsed)) {
+          const subtotal = order.subtotal || 0;
+          return parsed.map((t: any) => ({ name: String(t.name || ''), amount: Math.round((subtotal * ((Number(t.ratePercent)||0)/100)) * 100) / 100 }));
+        }
+      } catch {}
+      return undefined;
+    })();
+
     const html = generateBillHTML({
       id: order.id,
       orderNumber: order.orderNumber || order.id,
@@ -304,7 +358,7 @@ export async function printBillFromOrder(order: any, isPaid: boolean, paymentDet
         notes: it.customizationNotes
       })),
       business: billSettings.business,
-      tax: { showSplitGST: !!billSettings?.tax?.showSplitGST },
+      tax: { showSplitGST: !!billSettings?.tax?.showSplitGST, lines: taxLines },
       extras: { 
         showPaymentDetails: billSettings?.extras?.showPaymentDetails !== false,
         paymentMethod: paymentDetails?.method,

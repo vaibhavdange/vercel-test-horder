@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { useTables } from '@/hooks/useTables';
 import { CreateTableRequest, TableStatus } from '@/types/tables';
 import PaymentMethodsSettings from '@/components/settings/PaymentMethodsSettings';
+import ServiceChargesSettings from '@/components/settings/ServiceChargesSettings';
 import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 import TimezoneSettings from '@/components/ui/TimezoneSettings';
 
@@ -109,7 +110,7 @@ export default function SettingsPage() {
 
   const tabs: { key: SettingsTabKey; label: string }[] = [
     { key: 'general', label: 'General' },
-    { key: 'tax', label: 'Tax' },
+    { key: 'tax', label: 'Tax & Service' },
     { key: 'tables', label: 'Tables' },
     { key: 'data', label: 'Data' },
     { key: 'customers', label: 'Customers' },
@@ -121,7 +122,6 @@ export default function SettingsPage() {
   const [showAddFloor, setShowAddFloor] = useState(false);
   const [showAddArea, setShowAddArea] = useState(false);
   const [showAddTable, setShowAddTable] = useState(false);
-  const TaxSettings = useMemo(() => dynamic(() => import('./components/TaxSettings'), { ssr: false }), []);
   const DataSettings = useMemo(() => dynamic(() => import('./components/DataSettings'), { ssr: false }), []);
   const CustomersSettings = useMemo(() => dynamic(() => import('./components/CustomersSettings'), { ssr: false }), []);
   const PermissionsSettings = useMemo(() => dynamic(() => import('./components/PermissionsSettings'), { ssr: false }), []);
@@ -470,7 +470,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === 'tax' && (
-          <TaxSettings />
+          <ServiceChargesSettings />
         )}
 
         {activeTab === 'tables' && (

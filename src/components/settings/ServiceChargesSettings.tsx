@@ -41,6 +41,11 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
   const { data: defaultServiceChargeRate = 0 } = useDefaultServiceChargeRate();
   const { data: defaultTaxRate = 0 } = useDefaultTaxRate();
 
+  // Multiple tax types configuration (e.g., CGST, SGST)
+  type TaxType = { id: string; name: string; ratePercent: number };
+  const [taxTypes, setTaxTypes] = useState<TaxType[]>([]);
+  const [newTax, setNewTax] = useState<{ name: string; ratePercent: string }>({ name: "", ratePercent: "" });
+
   useEffect(() => {
     if (defaultServiceChargeRate !== undefined) {
       setConfig(prev => ({ ...prev, defaultServiceChargeRate }));
@@ -49,6 +54,28 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
       setConfig(prev => ({ ...prev, defaultTaxRate }));
     }
   }, [defaultServiceChargeRate, defaultTaxRate]);
+
+  // Load toggles and tax types from billing settings (server source of truth)
+  useEffect(() => {
+    try {
+      const keyToValue: Record<string, string> = {};
+      for (const s of billingSettings) keyToValue[s.key] = s.value;
+      if (keyToValue['service_charge_enabled']) {
+        setConfig(prev => ({ ...prev, serviceChargeEnabled: keyToValue['service_charge_enabled'] === 'true' }));
+      }
+      if (keyToValue['tax_enabled']) {
+        setConfig(prev => ({ ...prev, taxEnabled: keyToValue['tax_enabled'] === 'true' }));
+      }
+      if (keyToValue['tax_types']) {
+        try {
+          const parsed = JSON.parse(keyToValue['tax_types']);
+          if (Array.isArray(parsed)) {
+            setTaxTypes(parsed.map((t: any) => ({ id: String(t.id || `${Date.now()}_${Math.random().toString(36).slice(2,8)}`), name: String(t.name || ''), ratePercent: Number(t.ratePercent || 0) })));
+          }
+        } catch {}
+      }
+    } catch {}
+  }, [billingSettings]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -83,6 +110,14 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
         key: "tax_enabled",
         value: config.taxEnabled.toString(),
         description: "Whether taxes are enabled",
+        isActive: true,
+      });
+
+      // Save tax types array as JSON
+      await createBillingSetting.mutateAsync({
+        key: "tax_types",
+        value: JSON.stringify(taxTypes.map(t => ({ id: t.id, name: t.name, ratePercent: t.ratePercent }))),
+        description: "List of tax types and percentages",
         isActive: true,
       });
 
@@ -294,6 +329,74 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
               <p className="text-xs text-gray-500 mt-1">
                 This rate will be applied to all orders unless overridden at the product level
               </p>
+            </div>
+
+            {/* Tax Types list and add form */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="mb-3">
+                <h3 className="text-sm font-medium text-gray-900">Tax Types</h3>
+                <p className="text-xs text-gray-500">Add multiple tax components like CGST/SGST.</p>
+              </div>
+              <div className="space-y-3">
+                {taxTypes.length === 0 && (
+                  <div className="text-sm text-gray-500">No tax types added yet.</div>
+                )}
+                {taxTypes.map((t, idx) => (
+                  <div key={t.id} className="grid grid-cols-5 gap-2 items-center">
+                    <input
+                      value={t.name}
+                      onChange={(e) => setTaxTypes(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                      placeholder="e.g., CGST"
+                      className="col-span-3 px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    <div className="col-span-1 flex items-center">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={t.ratePercent}
+                        onChange={(e) => setTaxTypes(prev => prev.map((x, i) => i === idx ? { ...x, ratePercent: parseFloat(e.target.value) || 0 } : x))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                      <span className="ml-1 text-sm text-gray-600">%</span>
+                    </div>
+                    <button
+                      onClick={() => setTaxTypes(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-red-600 text-sm"
+                    >Remove</button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add new tax form */}
+              <div className="mt-4 grid grid-cols-5 gap-2 items-center">
+                <input
+                  value={newTax.name}
+                  onChange={(e) => setNewTax({ ...newTax, name: e.target.value })}
+                  placeholder="Tax name (e.g., SGST)"
+                  className="col-span-3 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <div className="col-span-1 flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={newTax.ratePercent}
+                    onChange={(e) => setNewTax({ ...newTax, ratePercent: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                  <span className="ml-1 text-sm text-gray-600">%</span>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!newTax.name.trim()) return;
+                    const rate = parseFloat(newTax.ratePercent || '0');
+                    setTaxTypes(prev => [{ id: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: newTax.name.trim(), ratePercent: isNaN(rate) ? 0 : rate }, ...prev]);
+                    setNewTax({ name: "", ratePercent: "" });
+                  }}
+                  className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm"
+                >Add</button>
+              </div>
             </div>
           </div>
         </div>

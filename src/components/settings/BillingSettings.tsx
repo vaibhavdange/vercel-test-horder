@@ -94,6 +94,12 @@ export default function BillingSettingsComponent({ className = '' }: BillingSett
 
   return (
     <div className={`space-y-6 ${className}`}>
+      {/* Taxes & Service toggles quick access */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Billing: Taxes & Service</h2>
+        <p className="text-sm text-gray-600 mb-4">Configure tax and service charge options in the Service Charge Settings tab. This section uses values from billing settings.</p>
+        <div className="text-sm text-gray-500">Go to Settings → Payments → Service Charge Settings for detailed controls.</div>
+      </div>
       {/* Order Button Configuration */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
