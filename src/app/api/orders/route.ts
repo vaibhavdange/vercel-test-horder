@@ -81,6 +81,8 @@ export async function POST(request: NextRequest) {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
+        taxRate: typeof item.taxRate === 'number' ? item.taxRate : 0,
+        taxAmount: typeof item.taxAmount === 'number' ? item.taxAmount : ((item.unitPrice || 0) * (item.quantity || 0) * ((item.taxRate || 0) / 100)),
         customizationNotes: item.customizationNotes,
       })),
     });

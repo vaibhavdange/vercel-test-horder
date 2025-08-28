@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus, Banknote } from "lucide-react";
-import { printBillFromOrder } from "@/lib/print/bill";
+// print bill has been removed for now; we'll wire this later
 import { useCurrency } from "@/hooks/useCurrency";
 import { NumericKeypad } from "./NumericKeypad";
 import { OrderItem, Order } from "@/types/orders";
@@ -194,16 +194,10 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   // Calculate amounts after discount
   const subtotalAfterDiscount = Math.max(0, computedSubtotal - calculatedDiscountAmount);
   
-  // Calculate tax and service charge on discounted subtotal
-  const serviceChargeAmountCalc = billingConfig.serviceEnabled ? (subtotalAfterDiscount * (billingConfig.defaultServiceRate / 100)) : 0;
-  const taxAmountCalc = billingConfig.taxEnabled
-    ? (
-        (billingConfig.taxTypes.length > 0
-          ? billingConfig.taxTypes.reduce((sum, t) => sum + (subtotalAfterDiscount * ((Number(t.ratePercent) || 0) / 100)), 0)
-          : subtotalAfterDiscount * (billingConfig.defaultTaxRate / 100)
-        )
-      )
-    : 0;
+  // Use the tax and service charge amounts already calculated in the order
+  // These amounts are calculated using individual product tax rates in the new order page
+  const serviceChargeAmountCalc = order.serviceChargeAmount || 0;
+  const taxAmountCalc = order.taxAmount || 0;
   
   const finalTotal = subtotalAfterDiscount + serviceChargeAmountCalc + taxAmountCalc;
   const changeDue = Math.max(0, (cashReceived || 0) - (finalTotal || 0));
@@ -216,6 +210,30 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
       return `${name} - Table ${order.tableNumber}`;
     }
     return name;
+  })();
+
+  // GST slab breakdown (group by item taxRate)
+  const gstSlabBreakdown = (() => {
+    try {
+      const items = (order.orderItems && order.orderItems.length > 0)
+        ? order.orderItems
+        : (((order as any).items || []) as OrderItem[]);
+      const rateToTotals = new Map<number, { base: number; tax: number }>();
+      for (const it of (items || [])) {
+        const rate = Number((it as any).taxRate || 0);
+        const base = (it.unitPrice || 0) * (it.quantity || 0);
+        const tax = rate > 0 ? base * (rate / 100) : 0;
+        const prev = rateToTotals.get(rate) || { base: 0, tax: 0 };
+        rateToTotals.set(rate, { base: prev.base + base, tax: prev.tax + tax });
+      }
+      // Sort by rate ascending and filter out zero-rate
+      return Array.from(rateToTotals.entries())
+        .filter(([rate]) => rate > 0)
+        .sort((a, b) => a[0] - b[0])
+        .map(([rate, v]) => ({ rate, base: v.base, tax: v.tax }));
+    } catch {
+      return [] as Array<{ rate: number; base: number; tax: number }>;
+    }
   })();
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
@@ -239,18 +257,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   };
 
   const handleReprint = async () => {
-    try {
-      if (order) {
-        const paymentDetails = {
-          method: selectedPaymentMethod?.name || 'Unknown',
-          cashReceived: selectedPaymentMethod?.type === 'cash' ? cashReceived : undefined,
-          changeDue: selectedPaymentMethod?.type === 'cash' ? changeDue : undefined
-        };
-        await printBillFromOrder(order, true, paymentDetails);
-      }
-    } catch (e) {
-      console.error('Reprint failed:', e);
-    }
+    console.log('Print disabled: bill printing is temporarily removed.');
   };
 
   const handleEmailReceipt = () => {
@@ -529,26 +536,27 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                         <span className="text-gray-600">Subtotal:</span>
                         <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(computedSubtotal || 0)}</span>
                       </div>
-                      {billingConfig.serviceEnabled && (
+                      {serviceChargeAmountCalc > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Service Charge:</span>
                           <span className="text-orange-600">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(serviceChargeAmountCalc || 0)}</span>
                         </div>
                       )}
-                      {billingConfig.taxEnabled && (
-                        billingConfig.taxTypes.length > 0 ? (
-                          // Show individual tax types
-                          billingConfig.taxTypes.map((taxType, index) => {
-                            const taxAmount = computedSubtotal * ((Number(taxType.ratePercent) || 0) / 100);
-                            return (
-                              <div key={index} className="flex justify-between text-sm">
-                                <span className="text-gray-600">{taxType.name}:</span>
-                                <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmount || 0)}</span>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          // Show default tax
+                      {gstSlabBreakdown.length > 0 ? (
+                        <div className="space-y-1">
+                          {gstSlabBreakdown.map((row, idx) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <span className="text-gray-600">GST {row.rate}%</span>
+                              <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(row.tax || 0)}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Tax (Total)</span>
+                            <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmountCalc || 0)}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        taxAmountCalc > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Tax:</span>
                             <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmountCalc || 0)}</span>

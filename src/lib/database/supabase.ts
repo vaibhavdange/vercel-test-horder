@@ -473,6 +473,8 @@ export class SupabaseDatabase {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
+        taxRate: (item as any).taxRate ?? 0,
+        taxAmount: (item as any).taxAmount ?? ((item.unitPrice || 0) * (item.quantity || 0) * (((item as any).taxRate || 0) / 100)),
         customizationNotes: item.customizationNotes,
         updatedAt: new Date().toISOString(),
       }));

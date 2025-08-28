@@ -74,10 +74,13 @@ export default function RefundDrawer({ isOpen, onClose, order, onRefundComplete 
   // Calculate refund amounts
   const getSelectedItemsTotal = (): number => {
     if (selectedItems.size === 0) return 0;
-    
     return itemsForRefund.reduce((total, item) => {
       if (selectedItems.has(item.id)) {
-        return total + (item.totalPrice || 0);
+        const base = (item.unitPrice || 0) * (item.quantity || 0);
+        const rate = Number((item as any).taxRate || 0);
+        const isAlcohol = false; // extend when product.isAlcohol is joined
+        const tax = isAlcohol ? 0 : base * (rate / 100);
+        return total + base + tax;
       }
       return total;
     }, 0);
@@ -275,12 +278,8 @@ export default function RefundDrawer({ isOpen, onClose, order, onRefundComplete 
             {/* Refund Summary */}
             <div className="space-y-3 pt-4 border-t border-gray-200">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal:</span>
+                <span className="text-gray-600">Refund Amount (Base + Tax):</span>
                 <span className="text-gray-800">{format(getRefundableAmount())}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Tax:</span>
-                <span className="text-gray-800">{format(0)}</span>
               </div>
               <div className="border-t border-gray-200 pt-3">
                 <div className="flex justify-between items-center">

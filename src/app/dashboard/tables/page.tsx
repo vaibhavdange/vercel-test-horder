@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Users, MapPin, Settings, X, Calendar } from 'lucide-react';
 import { Table, TableStatus, CreateTableRequest } from '@/types/tables';
 import PaymentDrawer from '@/components/ui/PaymentDrawer';
-import { printBillFromOrder } from '@/lib/print/bill';
 import { Order } from '@/types/orders';
 import { useTables } from '@/hooks/useTables';
 import { TableCard } from '@/components/tables/TableCard';
@@ -769,11 +768,7 @@ export default function TablesPage() {
             onClose={() => { setIsPaymentOpen(false); setSelectedOrderForPayment(null); }}
             order={selectedOrderForPayment as any}
             onPaymentComplete={async (transaction, paymentDetails) => {
-              try {
-                await printBillFromOrder(selectedOrderForPayment, true, paymentDetails);
-              } catch (e) {
-                console.error('Print after payment failed:', e);
-              }
+              console.log('Print disabled: bill printing is temporarily removed.');
               setIsPaymentOpen(false);
               setSelectedOrderForPayment(null);
             }}

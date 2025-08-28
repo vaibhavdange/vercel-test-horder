@@ -705,6 +705,66 @@ export default function NewOrderPage() {
         billSettings = billSettingsRaw ? JSON.parse(billSettingsRaw) : {};
       }
 
+      // Calculate tax lines for CGST/SGST split
+      const taxLines = (() => {
+        try {
+          const items = Array.isArray(order.orderItems) && order.orderItems.length > 0
+            ? order.orderItems
+            : ([] as any[]);
+
+          if (items.length === 0) {
+            return order.taxAmount > 0 ? [{ name: 'Tax', amount: order.taxAmount }] : [];
+          }
+
+          const subtotal: number = Number(order.subtotal || 0);
+          const discount: number = Number(order.discountAmount || 0);
+          const discountedSubtotal = Math.max(0, subtotal - discount);
+          const discountFactor = subtotal > 0 ? (discountedSubtotal / subtotal) : 1;
+
+          const rateToBase: Map<number, number> = new Map();
+          for (const it of items) {
+            const rate = Number((it as any).taxRate || (it as any)?.product?.taxRate || 0);
+            const isAlcohol = Boolean((it as any)?.product?.isAlcohol);
+            const base = ((Number(it.unitPrice) || 0) * (Number(it.quantity) || 0)) * discountFactor;
+            if (rate <= 0 || isAlcohol) continue; // no GST for alcohol (future excise)
+            rateToBase.set(rate, (rateToBase.get(rate) || 0) + base);
+          }
+
+          if (rateToBase.size === 0) {
+            return order.taxAmount > 0 ? [{ name: 'Tax', amount: order.taxAmount }] : [];
+          }
+
+          // Compute per-slab tax, then split equally into CGST/SGST
+          const slabs = Array.from(rateToBase.entries()).sort((a, b) => a[0] - b[0]);
+          const lines: Array<{ name: string; amount: number }> = [];
+          let sumTax = 0;
+          for (const [rate, base] of slabs) {
+            const tax = base * (rate / 100);
+            sumTax += tax;
+            const half = Math.round((tax / 2) * 100) / 100;
+            const halfRate = Math.round((rate / 2) * 100) / 100;
+            lines.push({ name: `CGST @ ${halfRate}%`, amount: half });
+            lines.push({ name: `SGST @ ${halfRate}%`, amount: half });
+          }
+
+          // Adjust rounding delta to match order.taxAmount when available
+          const reported = Number(order.taxAmount || 0);
+          const delta = Math.round(((reported || sumTax) - sumTax) * 100) / 100;
+          if (lines.length > 0 && Math.abs(delta) >= 0.01) {
+            // apply delta to the last line to reconcile
+            lines[lines.length - 1] = {
+              name: lines[lines.length - 1].name,
+              amount: Math.round((lines[lines.length - 1].amount + delta) * 100) / 100,
+            };
+          }
+
+          return lines;
+        } catch (error) {
+          console.log('Debug taxLines - error:', error);
+          return order.taxAmount > 0 ? [{ name: 'Tax', amount: order.taxAmount }] : [];
+        }
+      })();
+
       const html = generateBillHTML({
         id: order.id,
         orderNumber: order.orderNumber || order.id,
@@ -720,7 +780,7 @@ export default function NewOrderPage() {
         isPaid,
         items: (order.orderItems || []).map((it: any) => ({ name: it.productName, quantity: it.quantity, unitPrice: it.unitPrice, totalPrice: it.totalPrice, notes: it.customizationNotes })),
         business: billSettings.business,
-        tax: { showSplitGST: !!billSettings?.tax?.showSplitGST },
+        tax: { showSplitGST: !!billSettings?.tax?.showSplitGST, lines: taxLines },
         extras: { 
           showPaymentDetails: billSettings?.extras?.showPaymentDetails !== false,
           paymentMethod: paymentDetails?.method,
@@ -730,13 +790,8 @@ export default function NewOrderPage() {
         footer: billSettings.footer,
       }, { paper: billSettings.paper === '80' ? '80' : '58', dateTimeFormat: billSettings.dateTimeFormat });
 
-      // Print Bill using electron printer API if available; otherwise, expose the HTML
-      if (window.electron?.printer?.print) {
-        await window.electron.printer.print({ html, silent: true, paper: (billSettings.paper === '80' ? '80' : '58') });
-        console.log("Bill printed successfully");
-      } else {
-        console.log("Bill content ready for printing:", html);
-      }
+      // Printing disabled intentionally; preview remains available via HTML string above
+      console.log("Print disabled: bill printing is temporarily removed.");
     } catch (error) {
       console.error("Failed to print Bill:", error);
     }

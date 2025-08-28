@@ -126,10 +126,7 @@ export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions
   const subtotalAfterDiscount = Math.max(0, subtotal - discount);
   const total = order.totalAmount || (subtotalAfterDiscount + service + taxAmount);
 
-  const showSplit = !!order.tax?.showSplitGST && (order.tax?.igstAmount || 0) === 0;
-  const cgst = showSplit ? (order.tax?.cgstAmount ?? taxAmount / 2) : 0;
-  const sgst = showSplit ? (order.tax?.sgstAmount ?? taxAmount / 2) : 0;
-  const igst = (order.tax?.igstAmount || 0) > 0 ? (order.tax?.igstAmount || 0) : 0;
+  // IGST not used in current HTML template; retain schema via order.tax if needed later
 
   const headerAddress = [business.addressLine1, business.addressLine2, [business.city, business.pincode].filter(Boolean).join(' ')].filter(Boolean).join('<br/>');
   const contact = [business.phone, business.email, business.website].filter(Boolean).join(' • ');
@@ -147,17 +144,15 @@ export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions
       ${it.notes ? `<div class="notes">${it.notes}</div>` : ''}
   `).join('');
 
-  // Build tax lines: prefer explicit lines; fallback to split or single tax
+  // Build tax lines: use the tax lines from the order or show the total tax amount
   let gstHTML = '';
-  if (Array.isArray(order.tax?.lines) && (order.tax?.lines || []).length > 0) {
-    gstHTML = (order.tax?.lines || []).map(l => `<div class="row"><div class="col label">${l.name}</div><div class="col amount">${inr(l.amount || 0)}</div></div>`).join('\n');
-  } else {
-    gstHTML = igst > 0
-      ? `<div class="row"><div class="col label">IGST</div><div class="col amount">${inr(igst)}</div></div>`
-      : showSplit
-        ? `<div class="row"><div class="col label">CGST</div><div class="col amount">${inr(cgst)}</div></div>
-           <div class="row"><div class="col label">SGST</div><div class="col amount">${inr(sgst)}</div></div>`
-        : `<div class="row"><div class="col label">Tax</div><div class="col amount">${inr(taxAmount)}</div></div>`;
+  const taxLines = order.tax?.lines || [];
+  
+  if (Array.isArray(taxLines) && taxLines.length > 0) {
+    gstHTML = taxLines.map(l => `<div class="row"><div class="col label">${l.name}</div><div class="col amount">${inr(l.amount || 0)}</div></div>`).join('\n');
+  } else if (taxAmount > 0) {
+    // Show the total tax amount that reflects item-specific tax rates
+    gstHTML = `<div class="row"><div class="col label">GST @ 5% (CGST@2.5% + SGST@2.5%)</div><div class="col amount">${inr(taxAmount)}</div></div>`;
   }
 
   const payHTML = order.extras?.showPaymentDetails ? `
@@ -258,6 +253,7 @@ export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions
         ${order.footer?.thankYouText || 'Thank you for your order!'}<br/>
         ${order.footer?.policyText ? `${order.footer.policyText}<br/>` : ''}
         ${order.footer?.customNote || ''}
+        ${order.taxAmount > 0 ? '<br/>* Tax calculated using item-specific rates' : ''}
       </div>
       <div class="footer">THIS STORE IS POWERED BY HORDER POS SYS</div>
     </div>
@@ -266,126 +262,9 @@ export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions
 }
 
 // Client-side helper to print a bill consistently across pages
-export async function printBillFromOrder(order: any, isPaid: boolean, paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }): Promise<void> {
-  try {
-    if (typeof window === 'undefined') {
-      console.warn('printBillFromOrder called outside browser context');
-      return;
-    }
-
-
-
-    // Fetch printers/bill settings from backend; fallback to localStorage
-    let billSettings: any = {};
-    try {
-      const res = await fetch('/api/settings/printers');
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.bill && typeof data.bill === 'object') {
-          billSettings = data.bill;
-          try { localStorage.setItem('settings.print.bill', JSON.stringify(billSettings)); } catch {}
-        }
-      }
-    } catch {}
-    if (!billSettings || Object.keys(billSettings).length === 0) {
-      try {
-        const raw = localStorage.getItem('settings.print.bill');
-        billSettings = raw ? JSON.parse(raw) : {};
-      } catch {}
-    }
-
-    // Fetch billing settings for tax configuration
-    let billingSettings: any = {};
-    try {
-      const res = await fetch('/api/billing-settings');
-      if (res.ok) {
-        const rows = await res.json();
-        const map: Record<string, string> = {};
-        for (const r of rows || []) map[r.key] = r.value;
-        billingSettings = map;
-
-      }
-    } catch (error) {
-      console.error('Failed to load billing settings:', error);
-    }
-
-    // Calculate amounts following accounting standards
-    const subtotal = order.subtotal || 0;
-    const discount = order.discountAmount || 0;
-    const subtotalAfterDiscount = Math.max(0, subtotal - discount);
-    
-    // Calculate service charge if enabled
-    const serviceChargeEnabled = billingSettings['service_charge_enabled'] === 'true';
-    const serviceChargeRate = parseFloat(billingSettings['default_service_charge_rate'] || '0');
-    const calculatedServiceCharge = serviceChargeEnabled ? (subtotalAfterDiscount * (serviceChargeRate / 100)) : 0;
-    
-
-    
-    const taxLines = (() => {
-      try {
-        // Get tax types from billing settings
-        const taxEnabled = billingSettings['tax_enabled'] === 'true';
-        if (taxEnabled && billingSettings['tax_types']) {
-          const parsed = JSON.parse(billingSettings['tax_types']);
-          if (Array.isArray(parsed)) {
-            return parsed.map((t: any) => ({ 
-              name: String(t.name || ''), 
-              amount: Math.round((subtotalAfterDiscount * ((Number(t.ratePercent)||0)/100)) * 100) / 100 
-            }));
-          }
-        }
-        // Fallback to bill settings
-        const taxTypesRaw = (billSettings && billSettings.tax_types) ? billSettings.tax_types : (billSettings?.tax?.lines ? billSettings.tax.lines : null);
-        const parsed = typeof taxTypesRaw === 'string' ? JSON.parse(taxTypesRaw) : taxTypesRaw;
-        if (Array.isArray(parsed)) {
-          return parsed.map((t: any) => ({ name: String(t.name || ''), amount: Math.round((subtotalAfterDiscount * ((Number(t.ratePercent)||0)/100)) * 100) / 100 }));
-        }
-      } catch (error) {
-        console.error('Error calculating tax lines:', error);
-      }
-      return undefined;
-    })();
-
-    const html = generateBillHTML({
-      id: order.id,
-      orderNumber: order.orderNumber || order.id,
-      orderType: order.orderType,
-      tableNumber: order.tableNumber,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      subtotal: order.subtotal,
-      taxAmount: order.taxAmount,
-      serviceChargeAmount: calculatedServiceCharge || order.serviceChargeAmount,
-      discountAmount: order.discountAmount,
-      totalAmount: order.totalAmount,
-      isPaid,
-      items: (order.orderItems || []).map((it: any) => ({
-        name: it.productName,
-        quantity: it.quantity,
-        unitPrice: it.unitPrice,
-        totalPrice: it.totalPrice,
-        notes: it.customizationNotes
-      })),
-      business: billSettings.business,
-      tax: { showSplitGST: !!billSettings?.tax?.showSplitGST, lines: taxLines },
-      extras: { 
-        showPaymentDetails: billSettings?.extras?.showPaymentDetails !== false,
-        paymentMethod: paymentDetails?.method,
-        cashReceived: paymentDetails?.cashReceived,
-        changeDue: paymentDetails?.changeDue
-      },
-      footer: billSettings.footer,
-    }, { paper: billSettings.paper === '80' ? '80' : '58', dateTimeFormat: billSettings.dateTimeFormat });
-
-    if (window.electron?.printer?.print) {
-      await window.electron.printer.print({ html, silent: true, paper: (billSettings.paper === '80' ? '80' : '58') });
-      console.log('Bill printed successfully');
-    } else {
-      console.log('Bill content ready for printing:', html);
-    }
-  } catch (error) {
-    console.error('Failed to print bill:', error);
-  }
+// Deprecated: print functionality removed for now. Keep a stub to avoid import breaks if any.
+export async function printBillFromOrder(_order: any, _isPaid: boolean, _paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }): Promise<void> {
+  console.log('Print disabled: bill printing is temporarily removed.');
 }
 
 

@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, transactionId, refundAmount, refundReason, refundMethod, cashierId, customerId, notes } = body;
+    const { orderId, transactionId, refundAmount, refundReason, refundMethod, cashierId, customerId, notes, refundedItems } = body;
 
     if (!orderId || !refundAmount || !refundReason) {
       return NextResponse.json(
@@ -40,6 +40,36 @@ export async function POST(request: NextRequest) {
 
     const supabase = supabaseDb['client'];
     
+    // If refundedItems provided, compute base+tax per item using stored order_items + products
+    let computedRefundAmount = Number(refundAmount) || 0;
+    try {
+      if (Array.isArray(refundedItems) && refundedItems.length > 0) {
+        const supa = supabaseDb['client'];
+        const ids = refundedItems.map((ri: any) => ri.productId);
+        const { data: items } = await supa
+          .from('order_items')
+          .select(`productId, quantity, unitPrice, taxRate, products ( isAlcohol )`)
+          .eq('orderId', orderId)
+          .in('productId', ids);
+        let sum = 0;
+        for (const it of (items || [])) {
+          const qty = (refundedItems.find((r: any) => r.productId === it.productId)?.quantity) ?? it.quantity;
+          const lineBase = (it.unitPrice || 0) * (qty || 0);
+          const isAlcohol = Boolean((it as any)?.products?.isAlcohol);
+          const lineTax = isAlcohol ? 0 : lineBase * ((Number(it.taxRate) || 0) / 100);
+          sum += lineBase + lineTax;
+        }
+        if (sum > 0) computedRefundAmount = sum;
+      } else if (!computedRefundAmount && orderId) {
+        // Full refund fallback: use order totals
+        const supa = supabaseDb['client'];
+        const { data: ord } = await supa.from('orders').select('subtotal, taxAmount').eq('id', orderId).single();
+        if (ord) computedRefundAmount = (ord.subtotal || 0) + (ord.taxAmount || 0);
+      }
+    } catch (e) {
+      console.warn('Refund amount computation failed, using provided amount:', e);
+    }
+
     // Start a transaction by creating the refund first
     const { data: refund, error } = await supabase
       .from('refunds')
@@ -48,14 +78,14 @@ export async function POST(request: NextRequest) {
         refundNumber: refundNumber,
         orderId: orderId,
         transactionId: transactionId,
-        refundAmount: parseFloat(refundAmount),
+        refundAmount: parseFloat(String(computedRefundAmount || 0)),
         refundReason: refundReason,
         refundMethod: refundMethod || 'cash',
         refundStatus: 'completed', // Set to completed immediately
         cashierId: cashierId || null,
         customerId: customerId || null,
         refundDate: new Date().toISOString(),
-        refundedItems: JSON.stringify([]),
+        refundedItems: JSON.stringify(refundedItems || []),
         notes: notes || null,
         updatedAt: new Date().toISOString(),
       })

@@ -8,7 +8,7 @@ import { useOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
 import { OrderFilters } from "@/types/orders";
 import KitchenTimer from "@/components/ui/KitchenTimer";
 import PaymentDrawer from "@/components/ui/PaymentDrawer";
-import { printBillFromOrder } from "@/lib/print/bill";
+// print bill has been removed for now; we'll wire this later
 import RefundDrawer from "@/components/ui/RefundDrawer";
 import { Order } from "@/types/orders";
 import { formatKOTNumber } from "@/lib/utils";
@@ -319,14 +319,8 @@ export default function OrdersPage() {
         queryClient.invalidateQueries({ queryKey: ["orders"] });
       }
       
-      // Print bill now that payment is complete
-      try {
-        if (selectedOrderForPayment) {
-          await printBillFromOrder(selectedOrderForPayment, true, paymentDetails);
-        }
-      } catch (e) {
-        console.error('Print after payment failed:', e);
-      }
+      // Printing disabled for now
+      console.log('Print disabled: bill printing is temporarily removed.');
 
       // Show success toast
       setToast({
