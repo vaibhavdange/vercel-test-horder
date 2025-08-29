@@ -240,8 +240,8 @@ export function TableCard({
               )}
             </button>
             
-            {/* Amend Button - Only show if order is not completed */}
-            {table.orders[0].status !== 'completed' && (
+            {/* Amend Button - Show for unpaid orders regardless of completion status */}
+            {table.orders[0].paymentStatus !== 'paid' && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onAmendOrder?.(table.orders![0]); }}

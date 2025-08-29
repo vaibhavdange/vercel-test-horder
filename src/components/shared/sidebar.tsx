@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { useSettings } from "@/hooks/useSettings";
 import {
   MdDashboard,
   MdAddShoppingCart,
@@ -35,6 +36,7 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { settings, refreshSettings } = useSettings();
   
   // Initialize state from localStorage with collapsed as default
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -65,6 +67,16 @@ export default function Sidebar() {
       }
     }
   }, []);
+
+  // Listen for settings updates
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      refreshSettings();
+    };
+
+    window.addEventListener('settings:updated', handleSettingsUpdate);
+    return () => window.removeEventListener('settings:updated', handleSettingsUpdate);
+  }, [refreshSettings]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -106,14 +118,18 @@ export default function Sidebar() {
     }
   }, [router]);
 
+  // Get restaurant name from settings, fallback to 'HORDER' if not set
+  const restaurantName = settings?.restaurantName || 'HORDER';
+  const firstLetter = restaurantName.charAt(0).toUpperCase();
+
   return (
     <div className={`flex h-full flex-col bg-white border-r border-gray-200 shadow-lg transition-all duration-300 ease-in-out z-10 ${
       isCollapsed ? 'w-16' : 'w-64'
     } ${isCollapsed ? 'border-r-2 border-gray-300' : ''}`}>
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-gray-200 relative">
-        {!isCollapsed && <h1 className="text-2xl font-bold text-gray-900">HORDER</h1>}
-        {isCollapsed && <h1 className="text-lg font-bold text-gray-900">H</h1>}
+        {!isCollapsed && <h1 className="text-2xl font-bold text-gray-900">{restaurantName}</h1>}
+        {isCollapsed && <h1 className="text-lg font-bold text-gray-900">{firstLetter}</h1>}
         
         {/* Toggle Button */}
         <button

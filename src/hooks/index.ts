@@ -3,7 +3,7 @@ export { useAttendance } from './use-attendance';
 export { useBillingSettings } from './use-billing-settings';
 export { useCategories } from './use-categories';
 export { useSearchCustomers, useCustomerByPhone, useCreateCustomer, useUpdateCustomer } from './use-customers';
-export { useGlobalSearch } from './use-global-search';
+// export { useGlobalSearch } from './use-global-search';
 export { useHighlight } from './use-highlight';
 export { useStockItems, useCreateStockItem, useUpdateStockItem, useDeleteStockItem } from './use-ingredients';
 export { useOrders } from './use-orders';

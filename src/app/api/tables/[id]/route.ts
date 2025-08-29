@@ -47,10 +47,10 @@ export async function GET(
       );
     }
 
-    // Filter out completed orders and keep only active ones
+    // Keep unpaid orders regardless of completion status, filter out only paid completed orders
     const transformedTable = {
       ...table,
-      orders: table.orders?.filter((order: any) => order.status !== 'completed') || []
+      orders: table.orders?.filter((order: any) => !(order.status === 'completed' && order.paymentStatus === 'paid')) || []
     };
 
     return NextResponse.json(transformedTable);
@@ -122,10 +122,10 @@ export async function PUT(
 
     if (error) throw error;
 
-    // Filter out completed orders and keep only active ones
+    // Keep unpaid orders regardless of completion status, filter out only paid completed orders
     const transformedTable = {
       ...table,
-      orders: table.orders?.filter((order: any) => order.status !== 'completed') || []
+      orders: table.orders?.filter((order: any) => !(order.status === 'completed' && order.paymentStatus === 'paid')) || []
     };
 
     return NextResponse.json(transformedTable);

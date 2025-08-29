@@ -98,6 +98,12 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const [cashInput, setCashInput] = useState<string>("");
   const [partialInput, setPartialInput] = useState<string>(order.totalAmount.toString());
   
+  // Update partial amount when order changes
+  useEffect(() => {
+    setPartialAmount(order.totalAmount || 0);
+    setPartialInput((order.totalAmount || 0).toString());
+  }, [order.totalAmount]);
+  
   // Currency formatter
   const { format } = useCurrency();
   const getCurrencySymbol = (code: string): string => {
@@ -176,6 +182,8 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const computedSubtotal = (() => {
     const items = (order.orderItems && order.orderItems.length > 0)
       ? order.orderItems
+      : ((order as any).order_items && (order as any).order_items.length > 0)
+      ? (order as any).order_items
       : (((order as any).items || []) as OrderItem[]);
     const sum = items.reduce((acc, it) => acc + (it.quantity || 0) * (it.unitPrice || 0), 0);
     return typeof order.subtotal === 'number' ? order.subtotal : sum;
@@ -199,7 +207,21 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const serviceChargeAmountCalc = order.serviceChargeAmount || 0;
   const taxAmountCalc = order.taxAmount || 0;
   
-  const finalTotal = subtotalAfterDiscount + serviceChargeAmountCalc + taxAmountCalc;
+  // Use the order's totalAmount if available, otherwise calculate from components
+  const finalTotal = order.totalAmount || (subtotalAfterDiscount + serviceChargeAmountCalc + taxAmountCalc);
+  
+  // Debug logging
+  console.log('PaymentDrawer - Order data:', {
+    orderId: order.id,
+    totalAmount: order.totalAmount,
+    subtotal: order.subtotal,
+    taxAmount: order.taxAmount,
+    serviceChargeAmount: order.serviceChargeAmount,
+    computedSubtotal,
+    finalTotal,
+    orderItems: order.orderItems,
+    order_items: (order as any).order_items
+  });
   const changeDue = Math.max(0, (cashReceived || 0) - (finalTotal || 0));
   const amountRemaining = Math.max(0, (finalTotal || 0) - (cashReceived || 0));
   const exactCashAmount = finalTotal;
@@ -217,6 +239,8 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
     try {
       const items = (order.orderItems && order.orderItems.length > 0)
         ? order.orderItems
+        : ((order as any).order_items && (order as any).order_items.length > 0)
+        ? (order as any).order_items
         : (((order as any).items || []) as OrderItem[]);
       const rateToTotals = new Map<number, { base: number; tax: number }>();
       for (const it of (items || [])) {
@@ -286,7 +310,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   // Aggregate extras across items, multiplying by item quantity
   const getAggregatedExtras = (): Array<{ name: string; quantity: number; unitPrice?: number }> => {
     const map: Record<string, { name: string; quantity: number; unitPrice?: number }> = {};
-    const sourceItems: OrderItem[] = (order.orderItems && order.orderItems.length > 0) ? order.orderItems : (((order as any).items || []) as OrderItem[]);
+    const sourceItems: OrderItem[] = (order.orderItems && order.orderItems.length > 0) ? order.orderItems : ((order as any).order_items && (order as any).order_items.length > 0) ? (order as any).order_items : (((order as any).items || []) as OrderItem[]);
     sourceItems.forEach((item: OrderItem) => {
       const extras = parseExtrasFromNotes(item.customizationNotes);
       const itemQty = item.quantity || 1;
@@ -307,6 +331,8 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   // Order items list with fallback to support both shapes
   const orderItemsList: OrderItem[] = (order.orderItems && order.orderItems.length > 0)
     ? order.orderItems
+    : ((order as any).order_items && (order as any).order_items.length > 0)
+    ? (order as any).order_items
     : (((order as any).items || []) as OrderItem[]);
 
   const processPayment = async () => {

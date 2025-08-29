@@ -1,53 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
-import Sidebar from "../components/shared/sidebar";
-import RouteGuard from "../components/shared/RouteGuard";
+import { useEffect } from "react";
+import RouteGuard from "@/components/shared/RouteGuard";
+import Header from "@/components/shared/header";
+import Sidebar from "@/components/shared/sidebar";
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const { data: session, isLoading } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is authenticated
-    const authStatus = localStorage.getItem('isAuthenticated');
-    if (!authStatus) {
-      router.push('/');
-      return;
+    if (!isLoading && !session) {
+      router.push("/");
     }
-    
-    setIsAuthenticated(true);
-    setIsLoading(false);
-  }, [router]);
+  }, [session, isLoading, router]);
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className="flex flex-col h-full">
+        <div className="flex-1 p-6 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null; // Will redirect to login
+  if (!session) {
+    return null;
   }
 
   return (
     <RouteGuard>
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 flex flex-col overflow-y-auto">
-          {children}
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header />
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+        </div>
       </div>
     </RouteGuard>
   );

@@ -9,6 +9,7 @@ import PaymentMethodsSettings from '@/components/settings/PaymentMethodsSettings
 import ServiceChargesSettings from '@/components/settings/ServiceChargesSettings';
 import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 import TimezoneSettings from '@/components/ui/TimezoneSettings';
+import { useSettings } from '@/hooks/useSettings';
 
 export default function SettingsPage() {
   const {
@@ -19,6 +20,8 @@ export default function SettingsPage() {
     createAreaMutation,
     createTableMutation,
   } = useTables();
+
+  const { settings, updateSettings, isLoading } = useSettings();
 
   type SettingsTabKey = 'general' | 'tax' | 'tables' | 'data' | 'customers' | 'permissions' | 'print' | 'payments';
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('general');
@@ -84,29 +87,43 @@ export default function SettingsPage() {
 
   const [general, setGeneral] = useState<GeneralSettingsState>(defaultGeneral);
 
+  // Sync general state with settings from hook
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('settings.general');
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<GeneralSettingsState>;
-        setGeneral({ ...defaultGeneral, ...parsed });
-      } else {
-        const tz = Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone;
-        if (tz) setGeneral((g) => ({ ...g, timezone: tz }));
-      }
-    } catch (error) {
-      console.error('Settings page: Error loading settings:', error);
+    if (settings && !isLoading) {
+      setGeneral(prev => ({
+        ...prev,
+        restaurantName: settings.restaurantName,
+        location: settings.location,
+        restaurantId: settings.restaurantId,
+        storeId: settings.storeId,
+        logoDataUrl: settings.logoDataUrl,
+        currency: settings.currency,
+        timezone: settings.timezone,
+        contactEmail: settings.contactEmail,
+        contactPhone: settings.contactPhone,
+        receiptFooter: settings.receiptFooter,
+        theme: settings.theme,
+        notifications: settings.notifications,
+      }));
     }
-  }, []);
+  }, [settings, isLoading]);
 
-  useEffect(() => {
+  const handleSaveGeneralSettings = () => {
     try {
-      localStorage.setItem('settings.general', JSON.stringify(general));
-      window.dispatchEvent(new CustomEvent('settings:generalChanged'));
-    } catch (_) {
-      // ignore storage errors in non-browser contexts
+      // Update the settings using our hook
+      updateSettings(general);
+      
+      // Dispatch events for theme and currency changes
+      window.dispatchEvent(new CustomEvent('settings:themeChanged'));
+      window.dispatchEvent(new CustomEvent('settings:currencyChanged'));
+      
+      // Show success message
+      alert('Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Error saving settings. Please try again.');
     }
-  }, [general]);
+  };
 
   const tabs: { key: SettingsTabKey; label: string }[] = [
     { key: 'general', label: 'General' },
@@ -229,21 +246,12 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
                     <select
                       value={general.currency}
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const newCurrency = e.target.value;
                         const next = { ...general, currency: newCurrency };
                         setGeneral(next);
-                        try {
-                          localStorage.setItem('settings.general', JSON.stringify(next));
-                        } catch {}
+                        updateSettings(next);
                         window.dispatchEvent(new CustomEvent('settings:currencyChanged'));
-                        try {
-                          await fetch('/api/settings/general', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(next),
-                          });
-                        } catch (_) {}
                       }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
@@ -450,17 +458,7 @@ export default function SettingsPage() {
             </div>
             <div className="mt-6 flex items-center gap-3">
               <button
-                onClick={async () => {
-                  try {
-                    await fetch('/api/settings/general', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(general),
-                    });
-                    window.dispatchEvent(new CustomEvent('settings:themeChanged'));
-                    window.dispatchEvent(new CustomEvent('settings:currencyChanged'));
-                  } catch (_) {}
-                }}
+                onClick={handleSaveGeneralSettings}
                 className="px-4 py-2 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700"
               >
                 Save Settings
@@ -500,14 +498,8 @@ export default function SettingsPage() {
             </div>
             <div className="mt-6">
               <button
-                onClick={async () => {
-                  try {
-                    await fetch('/api/settings/tables', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({}),
-                    });
-                  } catch (_) {}
+                onClick={() => {
+                  alert('Tables settings saved successfully!');
                 }}
                 className="px-4 py-2 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700"
               >

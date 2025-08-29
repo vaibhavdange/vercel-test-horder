@@ -1459,7 +1459,7 @@ function TableDetailsDrawer({
                 >
                   {table.orders[0].paymentStatus === 'paid' ? 'Bill Paid ✓' : 'Pay Bill'}
                 </button>
-                {table.orders[0].status !== 'completed' && (
+                {table.orders[0].paymentStatus !== 'paid' && (
                   <button
                     onClick={() => onAmendOrder(table.orders![0])}
                     className="flex-1 bg-gray-100 text-gray-800 px-4 py-2.5 rounded-lg hover:bg-gray-200 border border-gray-300"

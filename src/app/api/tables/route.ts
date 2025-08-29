@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
       ...table,
       area: table.areas,
       floor: table.floors,
-      // Filter out completed orders and keep only active ones
-      orders: table.orders?.filter((order: any) => order.status !== 'completed') || [],
+      // Keep unpaid orders regardless of completion status, filter out only paid completed orders
+      orders: table.orders?.filter((order: any) => !(order.status === 'completed' && order.paymentStatus === 'paid')) || [],
       // Remove the plural versions to avoid confusion
       areas: undefined,
       floors: undefined
@@ -152,8 +152,8 @@ export async function PATCH(request: NextRequest) {
       ...table,
       area: table.areas,
       floor: table.floors,
-      // Filter out completed orders and keep only active ones
-      orders: table.orders?.filter((order: any) => order.status !== 'completed') || [],
+      // Keep unpaid orders regardless of completion status, filter out only paid completed orders
+      orders: table.orders?.filter((order: any) => !(order.status === 'completed' && order.paymentStatus === 'paid')) || [],
       // Remove the plural versions to avoid confusion
       areas: undefined,
       floors: undefined
