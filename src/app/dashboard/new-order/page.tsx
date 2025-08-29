@@ -85,6 +85,7 @@ export default function NewOrderPage() {
   // Refs for customer search
   const customerNameRef = useRef<HTMLInputElement>(null);
   const customerPhoneRef = useRef<HTMLInputElement>(null);
+  const phoneSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Router for navigation
   const router = useRouter();
@@ -166,19 +167,29 @@ export default function NewOrderPage() {
   const handleCustomerPhoneChange = async (phone: string) => {
     setCustomerPhone(phone);
     
-    if (phone.length >= 3) {
-      // Search for customers with matching phone numbers
-      const suggestions = await searchCustomersByPhone(phone);
-      setCustomerSuggestions(suggestions);
-      setShowCustomerSuggestions(true);
-    } else {
-      setShowCustomerSuggestions(false);
-      setCustomerSuggestions([]);
-    }
-    
-    // Clear customer ID if phone is changed manually
+    // Clear customer name and ID when phone is changed manually
     if (customerId) {
       setCustomerId(undefined);
+      setCustomerName(""); // Also clear the name when phone changes
+    }
+    
+    // Clear suggestions immediately when typing
+    setShowCustomerSuggestions(false);
+    setCustomerSuggestions([]);
+    
+    // Clear any existing timeout
+    if (phoneSearchTimeoutRef.current) {
+      clearTimeout(phoneSearchTimeoutRef.current);
+    }
+    
+    // Only search if phone number is at least 3 digits and add a small delay
+    if (phone.length >= 3) {
+      // Add a small delay to prevent rapid searches while typing
+      phoneSearchTimeoutRef.current = setTimeout(async () => {
+        const suggestions = await searchCustomersByPhone(phone);
+        setCustomerSuggestions(suggestions);
+        setShowCustomerSuggestions(true);
+      }, 500); // 500ms delay
     }
   };
 
@@ -232,6 +243,30 @@ export default function NewOrderPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Close customer suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.customer-suggestions') && !target.closest('input[placeholder*="phone"]')) {
+        setShowCustomerSuggestions(false);
+      }
+    };
+
+    if (showCustomerSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCustomerSuggestions]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (phoneSearchTimeoutRef.current) {
+        clearTimeout(phoneSearchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Search customers by name (helper function)
   const searchCustomersByName = async (query: string): Promise<Customer[]> => {
     try {
@@ -283,6 +318,18 @@ export default function NewOrderPage() {
     setCustomerId(customer.id);
     setShowCustomerSuggestions(false);
     setCustomerSuggestions([]);
+    
+    // Show a brief success message
+    const successMsg = document.createElement('div');
+    successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    successMsg.textContent = `Customer "${customer.name}" selected!`;
+    document.body.appendChild(successMsg);
+    
+    setTimeout(() => {
+      if (document.body.contains(successMsg)) {
+        document.body.removeChild(successMsg);
+      }
+    }, 2000);
   };
 
   // Auto-create customer when order is submitted (if new customer)
