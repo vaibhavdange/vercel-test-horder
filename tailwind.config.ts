@@ -2,6 +2,10 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
     darkMode: ["class"],
+    safelist: [
+        // Add any classes that might be generated dynamically or are critical for initial render
+        "bg-white", "bg-gray-50", "bg-green-600", "bg-green-700", "text-white", "text-gray-900", "text-gray-600", "text-gray-700", "rounded-2xl", "shadow-strong", "border", "border-gray-100", "border-gray-300", "focus:ring-2", "focus:ring-green-500", "focus:border-green-500", "disabled:opacity-50", "disabled:cursor-not-allowed"
+    ],
     content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
