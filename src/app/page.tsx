@@ -5,6 +5,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "@/lib/auth-client";
 import { useSettings } from "@/hooks/useSettings";
+import { useEffect } from "react";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,9 +21,13 @@ export default function LoginPage() {
   const { session, loading: sessionLoading, isAuthenticated } = useSession();
 
   // Check if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !sessionLoading) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, sessionLoading, router]);
+  
   if (isAuthenticated && !sessionLoading) {
-    // Redirect based on user role (you can add role logic here)
-    router.push("/dashboard");
     return null;
   }
 
