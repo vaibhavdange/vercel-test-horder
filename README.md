@@ -215,3 +215,32 @@ For support and questions:
 ---
 
 **HORDER** - Professional Point of Sale Solutions
+
+## 🖼️ Image Uploads (Supabase Direct Client Upload)
+
+**Image uploads are now handled directly from the client to Supabase Storage.**
+
+- No backend/API route is required for image uploads.
+- Works reliably on Vercel and other serverless platforms.
+- Images are uploaded to the `products` bucket in Supabase Storage.
+- The public URL is retrieved and used in the app.
+
+### How it works
+- The client uses the Supabase JS client and the public (anon) key to upload images directly.
+- Only authenticated users (if RLS is enabled) can upload images.
+- The upload UI provides progress, success, and error feedback.
+
+### Setup for Clients
+1. Ensure your Supabase project has a `products` storage bucket.
+2. Set the following environment variables in Vercel:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_BUCKET_PRODUCTS` (optional, defaults to 'products')
+3. (Recommended) Set up RLS policies in Supabase Storage to restrict uploads to authenticated users.
+
+### Deprecated: API Route for Uploads
+- The `/api/upload/image` route is no longer used and has been removed.
+- All uploads are now handled securely and directly from the client.
+
+### Example Usage
+See the `ImageUpload` component in `src/components/ui/ImageUpload.tsx` for implementation details.

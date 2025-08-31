@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, X, Image as ImageIcon, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from './button';
 import { Card } from './card';
+import { supabase } from '@/lib/supabase';
 
 interface ImageUploadProps {
   onImageUpload: (imageUrl: string, thumbnailUrl: string) => void;
@@ -35,36 +36,43 @@ export function ImageUpload({ onImageUpload, currentImage, className = '', disab
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
+      // Optional: Validate file type/size here
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+      const filePath = `images/${fileName}`;
 
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
-        body: formData,
-      });
+      // Upload to Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+      if (uploadError) {
+        throw new Error(uploadError.message || 'Upload failed');
       }
 
-      const result = await response.json();
-      
-      if (result.success) {
-        const uploadData: UploadResult = {
-          imageUrl: result.data.imageUrl,
-          thumbnailUrl: result.data.thumbnailUrl,
-          fileName: result.data.fileName,
-          compressionRatio: result.data.compressionRatio,
-          originalSize: result.data.originalSize,
-          compressedSize: result.data.compressedSize,
-        };
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage.from('products').getPublicUrl(filePath);
+      const imageUrl = publicUrlData?.publicUrl;
 
-        setUploadResult(uploadData);
-        onImageUpload(uploadData.imageUrl, uploadData.thumbnailUrl);
-      } else {
-        throw new Error(result.error || 'Upload failed');
+      if (!imageUrl) {
+        throw new Error('Failed to get public URL');
       }
+
+      // No thumbnail or compression in this direct upload version
+      const uploadData: UploadResult = {
+        imageUrl,
+        thumbnailUrl: imageUrl, // Use same image for thumbnail for now
+        fileName,
+        compressionRatio: 0,
+        originalSize: file.size,
+        compressedSize: file.size,
+      };
+
+      setUploadResult(uploadData);
+      onImageUpload(uploadData.imageUrl, uploadData.thumbnailUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
       console.error('Image upload error:', err);
