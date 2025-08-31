@@ -7,6 +7,14 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+    'bg-white', 'bg-black', 'text-black', 'text-white', 'p-4', 'm-4', 'rounded', 'shadow', 'border',
+    'flex', 'grid', 'block', 'inline-block', 'hidden', 'w-full', 'h-full', 'min-h-screen',
+    'justify-center', 'items-center', 'gap-4', 'space-y-4', 'space-x-4',
+    'hover:bg-gray-100', 'hover:bg-gray-200', 'hover:bg-gray-300',
+    'focus:ring', 'focus:outline-none', 'focus:ring-2', 'focus:ring-offset-2',
+    'dark:bg-gray-900', 'dark:text-white', 'dark:border-gray-700',
+  ],
   theme: {
   	extend: {
   		colors: {
