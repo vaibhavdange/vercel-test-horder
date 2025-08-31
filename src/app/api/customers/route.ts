@@ -5,10 +5,19 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
+    const phone = searchParams.get('phone');
 
     let customers = await supabaseDb.getCustomers() || [];
 
-    // Apply search filter if provided
+    // Handle phone search (exact match for existing customer lookup)
+    if (phone) {
+      customers = customers.filter(customer => 
+        customer.phone === phone
+      );
+      return NextResponse.json(customers);
+    }
+
+    // Apply search filter if provided (for name/partial phone search)
     if (search) {
       customers = customers.filter(customer => 
         customer.name.toLowerCase().includes(search.toLowerCase()) ||

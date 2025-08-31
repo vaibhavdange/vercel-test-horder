@@ -62,6 +62,13 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const [discountInput, setDiscountInput] = useState<string>("");
   const [selectedQuickDiscount, setSelectedQuickDiscount] = useState<string | null>(null);
 
+  // Reset discount when order changes
+  useEffect(() => {
+    setIsDiscountEnabled(false);
+    setDiscountInput("");
+    setSelectedQuickDiscount(null);
+  }, [order.id]);
+
   type KeypadTarget = "cash" | "partial" | "discount";
   const [isKeypadOpen, setIsKeypadOpen] = useState<boolean>(false);
 
@@ -100,8 +107,9 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   
   // Update partial amount when order changes
   useEffect(() => {
-    setPartialAmount(order.totalAmount || 0);
-    setPartialInput((order.totalAmount || 0).toString());
+    const orderTotal = order.totalAmount || 0;
+    setPartialAmount(orderTotal);
+    setPartialInput(orderTotal.toString());
   }, [order.totalAmount]);
   
   // Currency formatter
@@ -207,8 +215,8 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const serviceChargeAmountCalc = order.serviceChargeAmount || 0;
   const taxAmountCalc = order.taxAmount || 0;
   
-  // Use the order's totalAmount if available, otherwise calculate from components
-  const finalTotal = order.totalAmount || (subtotalAfterDiscount + serviceChargeAmountCalc + taxAmountCalc);
+  // Calculate final total with discount applied
+  const finalTotal = subtotalAfterDiscount + serviceChargeAmountCalc + taxAmountCalc;
   
   // Debug logging
   console.log('PaymentDrawer - Order data:', {
@@ -218,13 +226,26 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
     taxAmount: order.taxAmount,
     serviceChargeAmount: order.serviceChargeAmount,
     computedSubtotal,
+    calculatedDiscountAmount,
+    subtotalAfterDiscount,
     finalTotal,
+    isDiscountEnabled,
+    discountInput,
+    discountMode,
     orderItems: order.orderItems,
     order_items: (order as any).order_items
   });
   const changeDue = Math.max(0, (cashReceived || 0) - (finalTotal || 0));
   const amountRemaining = Math.max(0, (finalTotal || 0) - (cashReceived || 0));
   const exactCashAmount = finalTotal;
+
+  // Update partial amount when discount changes (after finalTotal is calculated)
+  useEffect(() => {
+    if (isDiscountEnabled) {
+      setPartialAmount(finalTotal || 0);
+      setPartialInput((finalTotal || 0).toString());
+    }
+  }, [finalTotal, isDiscountEnabled]);
 
   const orderSummaryTitle = (() => {
     const name = order.customerName || "Walk-in Customer";
@@ -267,6 +288,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const handleExactCash = () => {
     setCashReceived(finalTotal || 0);
     setCashInput((finalTotal || 0).toFixed(2));
+    setSelectedQuickAmount("exact");
   };
 
   const openKeypad = (target: KeypadTarget) => {
@@ -577,14 +599,14 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                             </div>
                           ))}
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tax (Total)</span>
+                            <span className="text-gray-600">GST 5% (SGST 2.5%+CGST 2.5%)</span>
                             <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmountCalc || 0)}</span>
                           </div>
                         </div>
                       ) : (
                         taxAmountCalc > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tax:</span>
+                            <span className="text-gray-600">GST 5% (SGST 2.5%+CGST 2.5%):</span>
                             <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmountCalc || 0)}</span>
                           </div>
                         )
@@ -813,6 +835,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                       variant="inline"
                       entryMode="adding-machine"
                       className="mt-3"
+                      disabled={showReceipt}
                     />
                   </div>
                 )}
@@ -985,6 +1008,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                     variant="inline"
                     entryMode="adding-machine"
                     className="mt-3"
+                    disabled={showReceipt}
                   />
 
                   {cashReceived > 0 && (
@@ -1062,6 +1086,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                   variant="inline"
                   entryMode="adding-machine"
                   className="mt-3"
+                  disabled={showReceipt}
                 />
                 <p className="text-xs text-green-600 mt-1">
                   Remaining: {format(((finalTotal || 0) - (partialAmount || 0)))}

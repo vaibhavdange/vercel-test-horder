@@ -5,22 +5,11 @@ export interface AppSettings {
   location: string;
   restaurantId: string;
   storeId: string;
-  logoDataUrl?: string;
   currency: string;
   timezone: string;
   contactEmail: string;
   contactPhone: string;
   receiptFooter: string;
-  theme: {
-    darkMode: boolean;
-    accent: string;
-  };
-  notifications: {
-    sound: boolean;
-    popup: boolean;
-    sms: boolean;
-    email: boolean;
-  };
 }
 
 const defaultSettings: AppSettings = {
@@ -28,22 +17,11 @@ const defaultSettings: AppSettings = {
   location: '',
   restaurantId: '',
   storeId: '',
-  logoDataUrl: undefined,
   currency: 'INR',
   timezone: 'UTC',
   contactEmail: '',
   contactPhone: '',
   receiptFooter: '',
-  theme: {
-    darkMode: false,
-    accent: '#16a34a',
-  },
-  notifications: {
-    sound: true,
-    popup: true,
-    sms: false,
-    email: false,
-  },
 };
 
 export function useSettings() {

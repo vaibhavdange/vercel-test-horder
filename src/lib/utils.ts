@@ -11,7 +11,7 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Formatted KOT number string
  */
 export function formatKOTNumber(kotNumber: number): string {
-  return `KOT-${kotNumber.toString().padStart(3, '0')}`;
+  return `#${kotNumber}`;
 }
 
 /**

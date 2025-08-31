@@ -451,7 +451,7 @@ export default function MenuPage() {
       count: categories.reduce((acc, cat: any) => acc + ((cat as any)._count?.products || 0), 0), 
       icon: "🍽️" 
     },
-            ...categories.map((cat: Category) => ({
+    ...categories.map((cat: Category) => ({
       id: cat.id,
       name: cat.name,
       count: (cat as any)._count?.products || 0,

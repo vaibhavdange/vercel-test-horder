@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Edit, Trash2, CheckCircle, Clock, AlertCircle, CreditCard, Loader2, ShoppingCart, PlusCircle, X, Truck, Users, Printer, RotateCcw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, CheckCircle, Clock, AlertCircle, CreditCard, Loader2, ShoppingCart, PlusCircle, X, Truck, Users, Printer, RotateCcw, Calendar } from "lucide-react";
 import { useOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
 import { OrderFilters } from "@/types/orders";
 import KitchenTimer from "@/components/ui/KitchenTimer";
@@ -15,6 +15,8 @@ import { formatKOTNumber } from "@/lib/utils";
 import { parseSupabaseTimestamp } from "@/lib/time";
 import { useCurrency } from '@/hooks/useCurrency';
 import { useQueryClient } from "@tanstack/react-query";
+
+
 
 // Toast notification component
 const Toast = ({ message, type, isVisible, onClose }: { message: string; type: 'success' | 'error'; isVisible: boolean; onClose: () => void }) => {
@@ -56,10 +58,77 @@ export default function OrdersPage() {
   const [isRefundDrawerOpen, setIsRefundDrawerOpen] = useState(false);
   const [selectedOrderForRefund, setSelectedOrderForRefund] = useState<Order | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean } | null>(null);
+  const [showOnlyToday, setShowOnlyToday] = useState(true); // Default to showing only today's orders
+  const [customDate, setCustomDate] = useState<Date | null>(null);
+  const [isCustomDateActive, setIsCustomDateActive] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const statusOptions = ["All", "Takeaway", "Queued", "Cooking", "Service", "completed", "cancelled", "Paid", "Unpaid", "Refunded"];
+
+  // Get today's date range for filtering
+  const getTodayDateRange = () => {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+    return { startOfDay, endOfDay };
+  };
+
+  // Check if an order is from today
+  const isOrderFromToday = (order: Order) => {
+    const { startOfDay, endOfDay } = getTodayDateRange();
+    const orderDate = parseSupabaseTimestamp(order.createdAt);
+    return orderDate >= startOfDay && orderDate <= endOfDay;
+  };
+
+  // Check if an order is from a specific date
+  const isOrderFromDate = (order: Order, date: Date) => {
+    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+    const orderDate = parseSupabaseTimestamp(order.createdAt);
+    return orderDate >= startOfDay && orderDate <= endOfDay;
+  };
+
+  // Get the date range for API calls
+  const getSelectedDateRange = () => {
+    if (isCustomDateActive && customDate) {
+      const startOfDay = new Date(customDate.getFullYear(), customDate.getMonth(), customDate.getDate());
+      const endOfDay = new Date(customDate.getFullYear(), customDate.getMonth(), customDate.getDate(), 23, 59, 59, 999);
+      return {
+        dateFrom: startOfDay.toISOString(),
+        dateTo: endOfDay.toISOString()
+      };
+    }
+    if (showOnlyToday) {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+      return {
+        dateFrom: startOfDay.toISOString(),
+        dateTo: endOfDay.toISOString()
+      };
+    }
+    return { dateFrom: undefined, dateTo: undefined };
+  };
+
+  // Handle custom date selection
+  const handleCustomDateSelect = (date: Date | null) => {
+    setCustomDate(date);
+    if (date) {
+      setIsCustomDateActive(true);
+      setShowOnlyToday(false);
+    } else {
+      setIsCustomDateActive(false);
+      setShowOnlyToday(true);
+    }
+  };
+
+  // Clear custom date and return to today's view
+  const clearCustomDate = () => {
+    setCustomDate(null);
+    setIsCustomDateActive(false);
+    setShowOnlyToday(true);
+  };
 
   // Debounce search query to avoid excessive API calls
   useEffect(() => {
@@ -70,7 +139,9 @@ export default function OrdersPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch orders from database using debounced search
+  // Fetch orders from database using debounced search and date filtering
+  const dateRange = getSelectedDateRange();
+  
   const { data: ordersData, isLoading, error } = useOrders({
     status: activeStatus === "All" ? undefined : 
             activeStatus === "Takeaway" ? undefined : // We'll filter takeaway and payment statuses on the frontend
@@ -79,8 +150,13 @@ export default function OrdersPage() {
             activeStatus === "Refunded" ? undefined :
             activeStatus === "Queued" ? "pending" :
             activeStatus === "Cooking" ? "in-process" :
-            activeStatus === "Service" ? "ready" : activeStatus,
+            activeStatus === "Service" ? "ready" : 
+            activeStatus === "completed" ? "completed" : // Fix: explicitly map completed status
+            activeStatus === "cancelled" ? "cancelled" : // Fix: explicitly map cancelled status
+            activeStatus,
     search: debouncedSearchQuery || undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
   });
 
   // Ensure orders is always an array and each order has orderItems
@@ -89,14 +165,26 @@ export default function OrdersPage() {
     orderItems: order.orderItems || []
   }));
 
-  // Filter orders based on active status
+  // Filter orders based on active status (backend handles date filtering)
   const filteredOrders = useMemo(() => {
-    if (activeStatus === "All") return orders.filter(order => order.status !== "completed");
-    if (activeStatus === "Takeaway") return orders.filter(order => order.orderType === "takeaway");
-    if (activeStatus === "Paid") return orders.filter(order => order.paymentStatus === "paid");
-    if (activeStatus === "Unpaid") return orders.filter(order => order.paymentStatus === "pending");
-    if (activeStatus === "Refunded") return orders.filter(order => order.paymentStatus === "refunded");
-    return orders;
+    let filtered = orders;
+    
+    // Apply status filters (backend handles date filtering)
+    if (activeStatus === "All") {
+      filtered = filtered.filter(order => order.status !== "completed" && order.status !== "cancelled");
+    } else if (activeStatus === "Takeaway") {
+      filtered = filtered.filter(order => order.orderType === "takeaway");
+    } else if (activeStatus === "Paid") {
+      filtered = filtered.filter(order => order.paymentStatus === "paid");
+    } else if (activeStatus === "Unpaid") {
+      filtered = filtered.filter(order => order.paymentStatus === "pending");
+    } else if (activeStatus === "Refunded") {
+      filtered = filtered.filter(order => order.paymentStatus === "refunded");
+    } else if (activeStatus === "cancelled") {
+      filtered = filtered.filter(order => order.status === "cancelled");
+    }
+    
+    return filtered;
   }, [orders, activeStatus]);
 
   const updateOrderStatus = useUpdateOrderStatus();
@@ -451,7 +539,7 @@ export default function OrdersPage() {
       
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
         {/* Filters and Search */}
-        <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
           {/* Status Tabs */}
           <div className="flex flex-wrap gap-2">
             {statusOptions.map((status) => (
@@ -469,25 +557,78 @@ export default function OrdersPage() {
             ))}
           </div>
 
-          {/* Search Bar - smaller width */}
-          <div className="w-full sm:w-64">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by order number, customer name, or phone"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              />
-              {isSearching && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                </div>
-              )}
+          {/* Search and Date Filter Controls */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            {/* Current Date Filter Toggle */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  setShowOnlyToday(!showOnlyToday);
+                  if (!showOnlyToday) {
+                    clearCustomDate();
+                  }
+                }}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
+                  showOnlyToday && !isCustomDateActive
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+                title={showOnlyToday ? "Showing only today's orders" : "Showing all orders"}
+              >
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {showOnlyToday && !isCustomDateActive ? "Today" : "All Dates"}
+                </span>
+              </button>
+
+              {/* Custom Date Picker */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="date"
+                  value={customDate ? customDate.toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const date = e.target.value ? new Date(e.target.value) : null;
+                    handleCustomDateSelect(date);
+                  }}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="Select date"
+                />
+                {isCustomDateActive && (
+                  <button
+                    onClick={clearCustomDate}
+                    className="px-2 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Clear custom date"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+
+            </div>
+
+            {/* Search Bar */}
+            <div className="w-full sm:w-64">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by order number, customer name, or phone"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
+
+
 
         {/* Orders Grid */}
         {isSearching ? (
@@ -503,32 +644,55 @@ export default function OrdersPage() {
             <div className="text-gray-400 mb-4">
               <ShoppingCart className="h-16 w-16 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {isCustomDateActive ? "No orders on selected date" : showOnlyToday ? "No orders today" : "No orders found"}
+            </h3>
             <p className="text-gray-600">
-              {searchQuery || activeStatus !== "All" 
+              {searchQuery || activeStatus !== "All"
                 ? "Try adjusting your search or filters"
-                : "Create your first order to get started"
+                : isCustomDateActive
+                  ? "No orders found on the selected date"
+                  : showOnlyToday 
+                    ? "No orders have been placed today yet"
+                    : "Create your first order to get started"
               }
             </p>
+            {(showOnlyToday || isCustomDateActive) && (
+              <button
+                onClick={() => {
+                  clearCustomDate();
+                  setShowOnlyToday(false);
+                }}
+                className="mt-4 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                View all orders instead
+              </button>
+            )}
           </div>
         ) : (
           <>
             {/* Search Results Count */}
-            {(searchQuery || activeStatus !== "All") && (
+            {(searchQuery || activeStatus !== "All" || showOnlyToday || isCustomDateActive) && (
               <div className="mb-4 text-sm text-gray-600">
                 Found {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}
                 {searchQuery && ` matching "${searchQuery}"`}
                 {activeStatus !== "All" && ` with status "${activeStatus}"`}
+                {showOnlyToday && !isCustomDateActive && " from today"}
+                {isCustomDateActive && customDate && ` from ${customDate.toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}`}
               </div>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
               {filteredOrders.map((order) => (
               <div id={`order-card-${order.id}`} key={order.id} className={`bg-white rounded-xl p-6 shadow-soft border border-gray-100 hover:shadow-medium transition-shadow duration-200 flex flex-col ${highlightOrderId === order.id ? 'ring-2 ring-blue-500' : ''}`}>
                 {/* Order Header - Compact Top Bar */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {order.kotNumber ? formatKOTNumber(order.kotNumber) : order.orderNumber.split('-')[2]}
+                    <div className="text-lg font-bold text-gray-900">
+                      {order.kotNumber ? formatKOTNumber(order.kotNumber) : `#${order.orderNumber.split('-')[2]}`}
                     </div>
                     {/* Order Type & Table Info */}
                     <span className="inline-flex items-center space-x-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
@@ -558,13 +722,23 @@ export default function OrdersPage() {
                   
                   {/* Order Status + Timer - Compact */}
                   <div className="flex items-center space-x-3">
+                    {/* Status Display - Show timer for completed orders instead of "Completed" */}
+                                         {order.status === "completed" ? (
+                       <div className="flex items-center space-x-1">
+                         <KitchenTimer
+                           createdAt={order.createdAt}
+                           startedCookingAt={order.startedCookingAt}
+                           readyAt={order.readyAt}
+                           updatedAt={order.updatedAt}
+                           status={order.status}
+                         />
+                       </div>
+                    ) : (
                     <div className="flex items-center space-x-2">
-                      {order.status === "completed" && <CheckCircle className="h-3 w-3 text-green-600" />}
                       {order.status === "ready" && <CheckCircle className="h-3 w-3 text-blue-600" />}
                       {order.status === "in-process" && <Clock className="h-3 w-3 text-orange-600" />}
                       {order.status === "pending" && <Clock className="h-3 w-3 text-gray-600" />}
                       <span className={`text-xs font-medium ${
-                        order.status === "completed" ? "text-green-600" :
                         order.status === "ready" ? "text-blue-600" :
                         order.status === "in-process" ? "text-orange-600" :
                         "text-gray-600"
@@ -572,26 +746,29 @@ export default function OrdersPage() {
                         {order.status === "pending" ? "Queued" :
                          order.status === "in-process" ? "Cooking" :
                          order.status === "ready" ? "Service" :
-                         order.status === "completed" ? "Completed" :
                          order.status === "cancelled" ? "Cancelled" :
                          order.status}
                       </span>
                     </div>
+                    )}
                     
                     {/* Amendment Indicator */}
                     {isOrderAmended(order) && (
                       <span className="text-xs font-medium text-purple-600 opacity-80">✏️ Amended</span>
                     )}
                     
-                    {/* Kitchen Timer - Compact */}
+                                         {/* Kitchen Timer - Only show for non-completed orders */}
+                     {order.status !== "completed" && (
                     <div className="flex items-center space-x-1">
                       <KitchenTimer
                         createdAt={order.createdAt}
                         startedCookingAt={order.startedCookingAt}
                         readyAt={order.readyAt}
+                           updatedAt={order.updatedAt}
                         status={order.status}
                       />
                     </div>
+                     )}
                   </div>
                 </div>
 
@@ -610,16 +787,16 @@ export default function OrdersPage() {
 
                 {/* Order Items - Prominent & Clean with Typewriter Font */}
                 <div className="mb-4 p-3 bg-white border border-gray-200 rounded-lg">
-                  <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-700 border-b border-gray-200 pb-1 mb-2">
+                  <div className="grid grid-cols-12 gap-2 text-sm font-medium text-gray-700 border-b border-gray-200 pb-1 mb-2">
                     <div className="col-span-2">Qty</div>
                     <div className="col-span-6">Item</div>
                     <div className="col-span-4 text-amber-600">Notes</div>
                   </div>
                   {(order.orderItems || []).map((item: any, index: number) => (
                     <div key={index} className="grid grid-cols-12 gap-2 py-1">
-                      <div className="col-span-2 text-gray-600 font-mono text-xs">{item.quantity}</div>
-                      <div className="col-span-6 text-gray-900 font-mono text-xs leading-tight">{item.productName}</div>
-                      <div className="col-span-4 text-amber-600 font-mono text-xs">
+                      <div className="col-span-2 text-gray-600 font-mono text-sm">{item.quantity}</div>
+                      <div className="col-span-6 text-gray-900 font-mono text-sm leading-tight">{item.productName}</div>
+                      <div className="col-span-4 text-amber-600 font-mono text-sm">
                         {formatNotesForKOT(item.customizationNotes)}
                       </div>
                     </div>
@@ -633,7 +810,11 @@ export default function OrdersPage() {
                     <button 
                       onClick={() => handleProgressiveStatusUpdate(order)}
                       disabled={order.status === "completed" || order.status === "cancelled"}
-                      className={`p-2.5 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getNextStatusInfo(order.status).buttonColor}`}
+                      className={`p-2.5 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        order.status === "completed" || order.status === "cancelled"
+                          ? "text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed"
+                          : "text-gray-800 bg-gray-200 hover:bg-gray-300 border border-gray-300 hover:border-gray-400"
+                      }`}
                       title={getNextStatusInfo(order.status).buttonText}
                     >
                       {getNextStatusInfo(order.status).icon}
@@ -643,27 +824,21 @@ export default function OrdersPage() {
                     <button 
                       onClick={() => handleAmendOrder(order)}
                       disabled={order.status === "completed" || order.status === "cancelled"}
-                                             className="p-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 hover:border-gray-300"
+                      className={`p-2.5 rounded-lg transition-colors duration-200 border ${
+                        order.status === "completed" || order.status === "cancelled"
+                          ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
+                          : "text-gray-700 hover:text-gray-900 hover:bg-gray-100 border-gray-300 hover:border-gray-400"
+                      }`}
                       title="Amend Order - Add/Remove Items"
                     >
                       <PlusCircle className="h-4 w-4" />
-                    </button>
-                    
-                    {/* Cancel Order Button */}
-                    <button 
-                      onClick={() => handleCancelOrder(order.id)}
-                      disabled={order.status === "cancelled" || order.status === "completed"}
-                      className="p-2.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200 border border-red-200 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Cancel Order"
-                    >
-                      <Trash2 className="h-4 w-4" />
                     </button>
                     
                     {/* Payment/Refund Action */}
                     {order.paymentStatus === "paid" ? (
                       <button 
                         onClick={() => handleRefund(order)}
-                        className="p-2.5 rounded-lg transition-colors duration-200 border text-red-600 bg-red-50 border-red-200 hover:bg-red-100"
+                        className="p-2.5 rounded-lg transition-colors duration-200 border text-gray-800 bg-gray-200 hover:bg-gray-300 border-gray-300 hover:border-gray-400"
                         title="Process Refund"
                       >
                         <RotateCcw className="h-4 w-4" />
@@ -672,7 +847,7 @@ export default function OrdersPage() {
                       <button
                         onClick={() => {}}
                         disabled
-                        className="p-2.5 rounded-lg transition-colors duration-200 border text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed"
+                        className="p-2.5 rounded-lg transition-colors duration-200 border text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
                         title="Refunded"
                       >
                         <RotateCcw className="h-4 w-4" />
@@ -680,12 +855,35 @@ export default function OrdersPage() {
                     ) : (
                       <button 
                         onClick={() => handlePayment(order)}
-                        className="p-2.5 rounded-lg transition-colors duration-200 border text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 border-yellow-200 hover:border-yellow-300"
+                        className="p-2.5 rounded-lg transition-colors duration-200 border text-gray-700 hover:text-gray-900 hover:bg-gray-100 border-gray-300 hover:border-gray-400"
                         title="Process Payment"
                       >
                         <CreditCard className="h-4 w-4" />
                       </button>
                     )}
+                    
+                    {/* Print Bill Button */}
+                    <button 
+                      onClick={() => handlePrintBill(order)}
+                      className="p-2.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200 border border-gray-300 hover:border-gray-400"
+                      title="Print Bill"
+                    >
+                      <Printer className="h-4 w-4" />
+                    </button>
+                    
+                    {/* Cancel Order Button */}
+                    <button 
+                      onClick={() => handleCancelOrder(order.id)}
+                      disabled={order.status === "cancelled" || order.status === "completed"}
+                      className={`p-2.5 rounded-lg transition-colors duration-200 border disabled:opacity-50 disabled:cursor-not-allowed ${
+                        order.status === "cancelled" || order.status === "completed"
+                          ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
+                          : "text-gray-800 hover:text-gray-900 hover:bg-gray-200 border-gray-400 hover:border-gray-500"
+                      }`}
+                      title="Cancel Order"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </div>

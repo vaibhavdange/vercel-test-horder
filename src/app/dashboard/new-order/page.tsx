@@ -167,10 +167,9 @@ export default function NewOrderPage() {
   const handleCustomerPhoneChange = async (phone: string) => {
     setCustomerPhone(phone);
     
-    // Clear customer name and ID when phone is changed manually
+    // Clear customer ID when phone is changed manually
     if (customerId) {
       setCustomerId(undefined);
-      setCustomerName(""); // Also clear the name when phone changes
     }
     
     // Clear suggestions immediately when typing
@@ -286,13 +285,33 @@ export default function NewOrderPage() {
       const response = await fetch(`/api/customers?search=${encodeURIComponent(query)}`);
       if (response.ok) {
         const customers = await response.json();
+        
         // Filter to only show customers whose phone numbers contain the query
-        return customers.filter((customer: Customer) => 
+        const filteredCustomers = customers.filter((customer: Customer) => 
           customer.phone && customer.phone.includes(query)
         );
+        
+        // Sort by relevance: exact matches first, then starts with, then contains
+        return filteredCustomers.sort((a: Customer, b: Customer) => {
+          const aExact = a.phone === query;
+          const bExact = b.phone === query;
+          
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+          
+          const aStartsWith = a.phone && a.phone.startsWith(query);
+          const bStartsWith = b.phone && b.phone.startsWith(query);
+          
+          if (aStartsWith && !bStartsWith) return -1;
+          if (!aStartsWith && bStartsWith) return 1;
+          
+          // If both have same relevance, sort by name
+          return a.name.localeCompare(b.name);
+        });
       }
       return [];
     } catch (error) {
+      console.error('Error searching customers by phone:', error);
       return [];
     }
   };
@@ -431,13 +450,14 @@ export default function NewOrderPage() {
     }))
   ];
 
-  // Customer search and selection
+  // Customer search and selection - only show suggestions, don't auto-fill
   useEffect(() => {
     if (existingCustomer) {
-      setCustomerName(existingCustomer.name);
+      // Don't auto-fill customer name - just set the ID for reference
       setCustomerId(existingCustomer.id);
+      // Show a subtle indicator that customer exists
+      console.log('Existing customer found:', existingCustomer.name);
     } else {
-      setCustomerName("");
       setCustomerId(undefined);
     }
   }, [existingCustomer]);
@@ -914,39 +934,7 @@ export default function NewOrderPage() {
     `;
   };
 
-  // Helper function to generate Bill content
-  const generateBillContent = (order: any, isPaid: boolean) => {
-    return `
-      ========================================
-                    BILL
-      ========================================
-      Date: ${new Date().toLocaleDateString()}
-      Time: ${new Date().toLocaleTimeString()}
-      Order #: ${order.id}
-      Order Type: ${order.orderType}
-      ${order.tableNumber ? `Table: ${order.tableNumber}` : ''}
-      Customer: ${order.customerName || 'Walk-in'}
-      ${order.customerPhone ? `Phone: ${order.customerPhone}` : ''}
-      
-      ITEMS:
-      ${order.orderItems.map((item: any, index: number) => 
-        `${index + 1}. ${item.productName} x${item.quantity} @ ${format(item.unitPrice)} = ${format(item.totalPrice)}${item.customizationNotes ? `\n   Notes: ${item.customizationNotes}` : ''}`
-      ).join('\n')}
-      
-      ========================================
-      Subtotal: ${format(order.subtotal)}
-      Tax: ${format(order.taxAmount)}
-      Service Charge: ${format(order.serviceChargeAmount)}
-      ========================================
-      TOTAL: ${format(order.totalAmount)}
-      Status: ${isPaid ? 'PAID' : 'UNPAID'}
-      ========================================
-      ${order.notes ? `\nNotes: ${order.notes}` : ''}
-      
-      Thank you for your order!
-      Powered by HORDER POS SYSTEM
-    `;
-  };
+
 
   // State for payment drawer
   const [showPaymentDrawer, setShowPaymentDrawer] = useState(false);
@@ -1103,19 +1091,11 @@ export default function NewOrderPage() {
         </button>
 
         {/* Main Content Area */}
-        <div className="min-w-0 flex-1 flex flex-col p-6 overflow-y-auto md:mr-0">
+        <div className="min-w-0 flex-1 flex flex-col px-6 pt-4 pb-6 overflow-y-auto md:mr-0">
           {/* Order Type Selection - Moved to right sidebar */}
 
-          {/* Search Bar - Static component */}
-          <MenuSearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            resultsCount={searchFilteredItems.length}
-            activeCategoryName={activeCategory !== "All" ? (categories.find((cat: ApiCategory) => cat.id === activeCategory)?.name || 'Category') : undefined}
-          />
-
-          {/* Categories */}
-          <div className="mb-6">
+          {/* Categories Section */}
+          <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Categories</h2>
             {categoriesLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -1149,9 +1129,19 @@ export default function NewOrderPage() {
             )}
           </div>
 
-          {/* Menu Items Grid */}
-          <div>
+          {/* Menu Items Section */}
+          <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Menu Items</h2>
+            
+            {/* Search Bar - Embedded in menu items container */}
+            <div className="mb-6">
+              <MenuSearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                resultsCount={searchFilteredItems.length}
+                activeCategoryName={activeCategory !== "All" ? (categories.find((cat: ApiCategory) => cat.id === activeCategory)?.name || 'Category') : undefined}
+              />
+            </div>
             {productsLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-green-600" />
@@ -1172,15 +1162,15 @@ export default function NewOrderPage() {
                 </span>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
                 {searchFilteredItems.map((item: MenuItem) => (
                   <div 
                     key={item.id} 
-                    className="w-48 h-48 bg-white rounded-xl shadow-soft border border-gray-200 hover:shadow-medium transition-all duration-200 relative cursor-pointer overflow-hidden flex flex-col"
+                    className="aspect-square bg-white rounded-xl shadow-soft border border-gray-200 hover:shadow-medium transition-all duration-200 relative cursor-pointer overflow-hidden flex flex-col"
                     onClick={() => addToOrder(item)}
                   >
                     {/* Product Image */}
-                    <div className="h-32 bg-gray-100 relative overflow-hidden">
+                    <div className="h-40 bg-gray-100 relative overflow-hidden">
                       {(() => {
                         // Use the product's actual image or thumbnail from database
                         const productImage = item.thumbnail || item.image;
@@ -1600,6 +1590,11 @@ export default function NewOrderPage() {
                       placeholder="Enter customer phone"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     />
+                    {existingCustomer && customerPhone && (
+                      <p className="mt-1 text-sm text-black">
+                        Customer "{existingCustomer.name}" exists with this phone number
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -1652,6 +1647,11 @@ export default function NewOrderPage() {
                       placeholder="Enter customer phone"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     />
+                    {existingCustomer && customerPhone && (
+                      <p className="mt-1 text-sm text-black">
+                        Customer "{existingCustomer.name}" exists with this phone number
+                      </p>
+                    )}
                   </div>
 
                   <div>

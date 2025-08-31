@@ -27,30 +27,16 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('general');
   const [showTimezoneSettings, setShowTimezoneSettings] = useState(false);
 
-  type DayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
-  interface DaySchedule { isOpen: boolean; openTime: string; closeTime: string }
   interface GeneralSettingsState {
     restaurantName: string;
     location: string;
     restaurantId: string;
     storeId: string;
-    logoDataUrl?: string;
-    schedule: Record<DayKey, DaySchedule>;
     currency: string;
     timezone: string;
     contactEmail: string;
     contactPhone: string;
     receiptFooter: string;
-    theme: {
-      darkMode: boolean;
-      accent: string;
-    };
-    notifications: {
-      sound: boolean;
-      popup: boolean;
-      sms: boolean;
-      email: boolean;
-    };
   }
 
   const defaultGeneral: GeneralSettingsState = {
@@ -58,31 +44,11 @@ export default function SettingsPage() {
     location: '',
     restaurantId: '',
     storeId: '',
-    logoDataUrl: undefined,
-    schedule: {
-      monday:    { isOpen: true,  openTime: '09:00', closeTime: '22:00' },
-      tuesday:   { isOpen: true,  openTime: '09:00', closeTime: '22:00' },
-      wednesday: { isOpen: true,  openTime: '09:00', closeTime: '22:00' },
-      thursday:  { isOpen: true,  openTime: '09:00', closeTime: '22:00' },
-      friday:    { isOpen: true,  openTime: '09:00', closeTime: '23:00' },
-      saturday:  { isOpen: true,  openTime: '10:00', closeTime: '23:00' },
-      sunday:    { isOpen: false, openTime: '10:00', closeTime: '20:00' },
-    },
     currency: 'INR',
     timezone: 'UTC',
     contactEmail: '',
     contactPhone: '',
     receiptFooter: '',
-    theme: {
-      darkMode: false,
-      accent: '#16a34a',
-    },
-    notifications: {
-      sound: true,
-      popup: true,
-      sms: false,
-      email: false,
-    },
   };
 
   const [general, setGeneral] = useState<GeneralSettingsState>(defaultGeneral);
@@ -96,14 +62,11 @@ export default function SettingsPage() {
         location: settings.location,
         restaurantId: settings.restaurantId,
         storeId: settings.storeId,
-        logoDataUrl: settings.logoDataUrl,
         currency: settings.currency,
         timezone: settings.timezone,
         contactEmail: settings.contactEmail,
         contactPhone: settings.contactPhone,
         receiptFooter: settings.receiptFooter,
-        theme: settings.theme,
-        notifications: settings.notifications,
       }));
     }
   }, [settings, isLoading]);
@@ -113,8 +76,7 @@ export default function SettingsPage() {
       // Update the settings using our hook
       updateSettings(general);
       
-      // Dispatch events for theme and currency changes
-      window.dispatchEvent(new CustomEvent('settings:themeChanged'));
+      // Dispatch events for currency changes
       window.dispatchEvent(new CustomEvent('settings:currencyChanged'));
       
       // Show success message
@@ -196,264 +158,125 @@ export default function SettingsPage() {
 
         {activeTab === 'general' && (
           <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="text-base font-semibold text-gray-900">Business Profile</h3>
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-gray-900">Business Profile</h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant name</label>
+                <input
+                  type="text"
+                  value={general.restaurantName}
+                  onChange={(e) => setGeneral({ ...general, restaurantName: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g., Horder Bistro"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm-grid-cols-2 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant ID</label>
                   <input
                     type="text"
-                    value={general.restaurantName}
-                    onChange={(e) => setGeneral({ ...general, restaurantName: e.target.value })}
+                    value={general.restaurantId}
+                    onChange={(e) => setGeneral({ ...general, restaurantId: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="e.g., Horder Bistro"
+                    placeholder="e.g., REST-001"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm-grid-cols-2 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant ID</label>
-                    <input
-                      type="text"
-                      value={general.restaurantId}
-                      onChange={(e) => setGeneral({ ...general, restaurantId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="e.g., REST-001"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Store ID</label>
-                    <input
-                      type="text"
-                      value={general.storeId}
-                      onChange={(e) => setGeneral({ ...general, storeId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="e.g., STORE-101"
-                    />
-                  </div>
-                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Store ID</label>
                   <input
                     type="text"
-                    value={general.location}
-                    onChange={(e) => setGeneral({ ...general, location: e.target.value })}
+                    value={general.storeId}
+                    onChange={(e) => setGeneral({ ...general, storeId: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Address, City, Country"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                    <select
-                      value={general.currency}
-                      onChange={(e) => {
-                        const newCurrency = e.target.value;
-                        const next = { ...general, currency: newCurrency };
-                        setGeneral(next);
-                        updateSettings(next);
-                        window.dispatchEvent(new CustomEvent('settings:currencyChanged'));
-                      }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="INR">INR</option>
-                      <option value="AED">AED</option>
-                      <option value="JPY">JPY</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={general.timezone}
-                        onChange={(e) => setGeneral({ ...general, timezone: e.target.value })}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        placeholder="e.g., Asia/Dubai"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowTimezoneSettings(true)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                        title="Configure regional timezone settings"
-                      >
-                        <Globe className="w-4 h-4" />
-                        <span className="hidden sm:inline">Regional</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact email</label>
-                    <input
-                      type="email"
-                      value={general.contactEmail}
-                      onChange={(e) => setGeneral({ ...general, contactEmail: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="info@example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact phone</label>
-                    <input
-                      type="tel"
-                      value={general.contactPhone}
-                      onChange={(e) => setGeneral({ ...general, contactPhone: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="+1 555 0100"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Receipt footer</label>
-                  <textarea
-                    value={general.receiptFooter}
-                    onChange={(e) => setGeneral({ ...general, receiptFooter: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    rows={3}
-                    placeholder="Thank you for dining with us!"
+                    placeholder="e.g., STORE-101"
                   />
                 </div>
               </div>
-              <div className="space-y-6">
-                <h3 className="text-base font-semibold text-gray-900">Brand & Hours</h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={general.location}
+                  onChange={(e) => setGeneral({ ...general, location: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Address, City, Country"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Logo</label>
-                  <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
-                      {general.logoDataUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={general.logoDataUrl} alt="Logo preview" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-xs text-gray-400">No logo</span>
-                      )}
-                    </div>
-                    <div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            const result = reader.result as string;
-                            setGeneral({ ...general, logoDataUrl: result });
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <select
+                    value={general.currency}
+                    onChange={(e) => {
+                      const newCurrency = e.target.value;
+                      const next = { ...general, currency: newCurrency };
+                      setGeneral(next);
+                      updateSettings(next);
+                      window.dispatchEvent(new CustomEvent('settings:currencyChanged'));
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="INR">INR</option>
+                    <option value="AED">AED</option>
+                    <option value="JPY">JPY</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Store timings</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {Object.entries(general.schedule).map(([day, sched]) => (
-                      <div key={day} className="border border-gray-200 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="capitalize text-sm font-medium text-gray-800">{day}</span>
-                          <label className="inline-flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={sched.isOpen}
-                              onChange={(e) => setGeneral({
-                                ...general,
-                                schedule: {
-                                  ...general.schedule,
-                                  [day as DayKey]: { ...sched, isOpen: e.target.checked },
-                                },
-                              })}
-                            />
-                            <span>{sched.isOpen ? 'Open' : 'Closed'}</span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">Opens</label>
-                            <input
-                              type="time"
-                              value={sched.openTime}
-                              disabled={!sched.isOpen}
-                              onChange={(e) => setGeneral({
-                                ...general,
-                                schedule: {
-                                  ...general.schedule,
-                                  [day as DayKey]: { ...sched, openTime: e.target.value },
-                                },
-                              })}
-                              className="w-full border border-gray-300 rounded-md px-2 py-1"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">Closes</label>
-                            <input
-                              type="time"
-                              value={sched.closeTime}
-                              disabled={!sched.isOpen}
-                              onChange={(e) => setGeneral({
-                                ...general,
-                                schedule: {
-                                  ...general.schedule,
-                                  [day as DayKey]: { ...sched, closeTime: e.target.value },
-                                },
-                              })}
-                              className="w-full border border-gray-300 rounded-md px-2 py-1"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={general.timezone}
+                      onChange={(e) => setGeneral({ ...general, timezone: e.target.value })}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="e.g., Asia/Dubai"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTimezoneSettings(true)}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      title="Configure regional timezone settings"
+                    >
+                      <Globe className="w-4 h-4" />
+                      <span className="hidden sm:inline">Regional</span>
+                    </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="rounded-lg border border-gray-200 p-4">
-                    <h4 className="text-sm font-medium text-gray-800 mb-2">Theme</h4>
-                    <label className="flex items-center justify-between p-2 border border-gray-200 rounded-md mb-3">
-                      <span className="text-sm text-gray-800">Dark mode</span>
-                      <input
-                        type="checkbox"
-                        checked={general.theme.darkMode}
-                        onChange={(e) => {
-                          setGeneral({ ...general, theme: { ...general.theme, darkMode: e.target.checked } });
-                          window.dispatchEvent(new CustomEvent('settings:themeChanged'));
-                        }}
-                      />
-                    </label>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Accent color</label>
-                      <input
-                        type="color"
-                        value={general.theme.accent}
-                        onChange={(e) => {
-                          setGeneral({ ...general, theme: { ...general.theme, accent: e.target.value } });
-                          window.dispatchEvent(new CustomEvent('settings:themeChanged'));
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 p-4">
-                    <h4 className="text-sm font-medium text-gray-800 mb-2">Notifications</h4>
-                    {[
-                      ['sound', 'Sound alerts'],
-                      ['popup', 'Popup notifications'],
-                      ['sms', 'SMS alerts'],
-                      ['email', 'Email alerts'],
-                    ].map(([key, label]) => (
-                      <label key={key} className="flex items-center justify-between p-2 border border-gray-200 rounded-md mb-2">
-                        <span className="text-sm text-gray-800">{label}</span>
-                        <input
-                          type="checkbox"
-                          checked={(general.notifications as any)[key]}
-                          onChange={(e) => setGeneral({ ...general, notifications: { ...general.notifications, [key]: e.target.checked } as any })}
-                        />
-                      </label>
-                    ))}
-                  </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact email</label>
+                  <input
+                    type="email"
+                    value={general.contactEmail}
+                    onChange={(e) => setGeneral({ ...general, contactEmail: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="info@example.com"
+                  />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact phone</label>
+                  <input
+                    type="tel"
+                    value={general.contactPhone}
+                    onChange={(e) => setGeneral({ ...general, contactPhone: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="+91 9012345678"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Receipt footer</label>
+                <textarea
+                  value={general.receiptFooter}
+                  onChange={(e) => setGeneral({ ...general, receiptFooter: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  rows={3}
+                  placeholder="Thank you for dining with us!"
+                />
               </div>
             </div>
             <div className="mt-6 flex items-center gap-3">

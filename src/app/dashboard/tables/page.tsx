@@ -29,32 +29,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 export default function TablesPage() {
-  // Add Material Symbols font and styles
-  React.useEffect(() => {
-    // Add font link if not already present
-    if (!document.querySelector('link[href*="Material+Symbols+Outlined"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=stairs_2';
-      document.head.appendChild(link);
-    }
 
-    // Add CSS styles if not already present
-    if (!document.querySelector('style[data-material-symbols]')) {
-      const style = document.createElement('style');
-      style.setAttribute('data-material-symbols', 'true');
-      style.textContent = `
-        .material-symbols-outlined {
-          font-variation-settings:
-          'FILL' 0,
-          'wght' 400,
-          'GRAD' 0,
-          'opsz' 24
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
 
   const [statusFilter, setStatusFilter] = useState<TableStatus | 'all'>('all');
   const [floorFilter, setFloorFilter] = useState<string>('all');

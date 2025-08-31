@@ -8,10 +8,11 @@ interface KitchenTimerProps {
   createdAt: string;
   startedCookingAt?: string;
   readyAt?: string;
+  updatedAt?: string;
   status: string;
 }
 
-export default function KitchenTimer({ createdAt, startedCookingAt, readyAt, status }: KitchenTimerProps) {
+export default function KitchenTimer({ createdAt, startedCookingAt, readyAt, updatedAt, status }: KitchenTimerProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -74,7 +75,13 @@ export default function KitchenTimer({ createdAt, startedCookingAt, readyAt, sta
           };
         }
       case "completed":
-        if (readyAt) {
+        if (updatedAt) {
+          return {
+            icon: <CheckCircle className="h-3 w-3 text-green-500" />,
+            text: formatDuration(createdAt, updatedAt),
+            color: "text-green-600"
+          };
+        } else if (readyAt) {
           return {
             icon: <CheckCircle className="h-3 w-3 text-green-500" />,
             text: formatDuration(createdAt, readyAt),

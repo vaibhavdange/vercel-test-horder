@@ -28,14 +28,10 @@ export default function SignupPage() {
     setSuccess(null);
 
     try {
-      const result = await signUp('emailAndPassword', {
-        email,
-        password,
-        name: email.split('@')[0], // Use email prefix as name
-      });
+      const result = await signUp(email, password);
 
       if (result.error) {
-        setError(result.error);
+        setError(result.error.message);
       } else {
         setSuccess("User created successfully! You can now login.");
         setEmail("");
@@ -133,14 +129,18 @@ export default function SignupPage() {
           {/* Error Message */}
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600 text-center">{error}</p>
+              <p className="text-sm text-red-600 text-center">
+                {typeof error === 'string' ? error : 'An error occurred. Please try again.'}
+              </p>
             </div>
           )}
 
           {/* Success Message */}
           {success && (
             <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-600 text-center">{success}</p>
+              <p className="text-sm text-green-600 text-center">
+                {typeof success === 'string' ? success : 'Operation completed successfully!'}
+              </p>
             </div>
           )}
 

@@ -9,6 +9,127 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      // BetterAuth standard tables
+      users: {
+        Row: {
+          id: string
+          email: string
+          emailVerified: boolean
+          name: string | null
+          image: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          emailVerified?: boolean
+          name?: string | null
+          image?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          emailVerified?: boolean
+          name?: string | null
+          image?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      sessions: {
+        Row: {
+          id: string
+          userId: string
+          expiresAt: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          userId: string
+          expiresAt: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          userId?: string
+          expiresAt?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      verification_tokens: {
+        Row: {
+          identifier: string
+          token: string
+          expiresAt: string
+          created_at: string
+        }
+        Insert: {
+          identifier: string
+          token: string
+          expiresAt: string
+          created_at?: string
+        }
+        Update: {
+          identifier?: string
+          token?: string
+          expiresAt?: string
+          created_at?: string
+        }
+      }
+      accounts: {
+        Row: {
+          id: string
+          userId: string
+          provider: string
+          providerAccountId: string
+          refresh_token: string | null
+          access_token: string | null
+          expires_at: number | null
+          token_type: string | null
+          scope: string | null
+          id_token: string | null
+          session_state: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          userId: string
+          provider: string
+          providerAccountId: string
+          refresh_token?: string | null
+          access_token?: string | null
+          expires_at?: number | null
+          token_type?: string | null
+          scope?: string | null
+          id_token?: string | null
+          session_state?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          userId?: string
+          provider?: string
+          providerAccountId?: string
+          refresh_token?: string | null
+          access_token?: string | null
+          expires_at?: number | null
+          token_type?: string | null
+          scope?: string | null
+          id_token?: string | null
+          session_state?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      // Legacy tables (keeping for backward compatibility)
       products: {
         Row: {
           id: string
@@ -54,7 +175,7 @@ export interface Database {
           name?: string
           description?: string | null
           price?: number
-          cost?: number | null
+          cost?: string | null
           categoryId?: string | null
           taxCategoryId?: string | null
           stockQuantity?: number

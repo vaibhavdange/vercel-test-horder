@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "@/lib/auth-client";
@@ -16,15 +16,16 @@ export default function LoginPage() {
   const router = useRouter();
   const { settings } = useSettings();
   
-  // Use Better Auth session
-  const { data: session, isLoading: sessionLoading } = useSession();
+  // Use Supabase session
+  const { session, loading: sessionLoading, isAuthenticated } = useSession();
 
-  // Check if user is already authenticated
-  if (session && !sessionLoading) {
-    // Redirect based on user role (you can add role logic here)
-    router.push("/dashboard");
-    return null;
-  }
+  // Handle navigation after component mounts
+  useEffect(() => {
+    if (isAuthenticated && !sessionLoading) {
+      // Redirect based on user role (you can add role logic here)
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, sessionLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,13 +39,10 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const result = await signIn("emailAndPassword", {
-        email,
-        password,
-      });
+      const result = await signIn(email, password);
 
       if (result.error) {
-        setError(result.error);
+        setError(result.error.message);
       } else {
         // Redirect is handled by the session check above
         router.push("/dashboard");
@@ -56,12 +54,25 @@ export default function LoginPage() {
     }
   };
 
+  // Show loading state while checking authentication
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show login form if already authenticated (navigation will happen in useEffect)
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to dashboard...</p>
         </div>
       </div>
     );

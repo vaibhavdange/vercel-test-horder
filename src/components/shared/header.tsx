@@ -26,9 +26,22 @@ function DigitalClock() {
     });
   };
 
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   return (
-    <div className="text-lg font-medium text-green-600">
-      {formatTime(time)}
+    <div className="flex items-center space-x-2">
+      <div className="text-xl font-bold text-green-600 bg-green-50 px-3 py-1 rounded-lg shadow-sm">
+        {formatTime(time)}
+      </div>
+      <div className="text-sm text-gray-500">
+        {formatDate(time)}
+      </div>
     </div>
   );
 }
@@ -36,7 +49,7 @@ function DigitalClock() {
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { data: session } = useSession();
+  const { session, user } = useSession();
   const { settings, refreshSettings } = useSettings();
 
   const handleLogout = async () => {
@@ -74,12 +87,12 @@ export default function Header() {
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-          </div>
-
-          {/* Center - Digital Clock */}
-          <div className="flex-1 flex justify-center">
+            {/* Digital Clock */}
             <DigitalClock />
           </div>
+
+          {/* Center - Empty space for balance */}
+          <div className="flex-1" />
 
           {/* Right side */}
           <div className="flex items-center gap-3">

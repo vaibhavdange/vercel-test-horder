@@ -113,3 +113,6 @@ Thumbs.db
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# sample menu items
+sampleMenuData.ts

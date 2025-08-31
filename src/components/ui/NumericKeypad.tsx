@@ -15,6 +15,7 @@ interface NumericKeypadProps {
   variant?: "overlay" | "inline";
   className?: string;
   entryMode?: "adding-machine" | "direct";
+  disabled?: boolean;
 }
 
 function clampDecimalPlaces(input: string, maxDecimalPlaces: number): string {
@@ -36,6 +37,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   variant = "overlay",
   className,
   entryMode = "adding-machine",
+  disabled = false,
 }) => {
   if (!open) return null;
 
@@ -61,6 +63,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   };
 
   const handleAppend = (token: string) => {
+    if (disabled) return;
     if (entryMode === "adding-machine") {
       let cents = toCents(value);
       if (token === "00") {
@@ -104,6 +107,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   };
 
   const handleBackspace = () => {
+    if (disabled) return;
     if (entryMode === "adding-machine") {
       let cents = toCents(value);
       cents = Math.floor(cents / 10);
@@ -115,6 +119,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   };
 
   const handleClear = () => {
+    if (disabled) return;
     if (entryMode === "adding-machine") {
       onChange(centsToDisplay(0));
     } else {
@@ -193,7 +198,12 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
                 key={token}
                 type="button"
                 onClick={() => handleAppend(token)}
-                className="h-14 text-xl rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                disabled={disabled}
+                className={`h-14 text-xl rounded-lg transition-colors ${
+                  disabled 
+                    ? "bg-gray-50 text-gray-400 cursor-not-allowed" 
+                    : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
+                }`}
               >
                 {token}
               </button>
@@ -203,10 +213,12 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             <button
               type="button"
               onClick={() => handleAppend(".")}
+              disabled={!allowDecimal || disabled}
               className={`h-14 text-xl rounded-lg transition-colors ${
-                allowDecimal ? "bg-gray-100 hover:bg-gray-200 active:bg-gray-300" : "bg-gray-100 opacity-50 cursor-not-allowed"
+                disabled || !allowDecimal 
+                  ? "bg-gray-50 text-gray-400 cursor-not-allowed" 
+                  : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
               }`}
-              disabled={!allowDecimal}
             >
               .
             </button>
@@ -215,7 +227,12 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             <button
               type="button"
               onClick={() => handleAppend("0")}
-              className="h-14 text-xl rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              disabled={disabled}
+              className={`h-14 text-xl rounded-lg transition-colors ${
+                disabled 
+                  ? "bg-gray-50 text-gray-400 cursor-not-allowed" 
+                  : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
+              }`}
             >
               0
             </button>
@@ -224,7 +241,12 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             <button
               type="button"
               onClick={handleBackspace}
-              className="h-14 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors flex items-center justify-center"
+              disabled={disabled}
+              className={`h-14 rounded-lg transition-colors flex items-center justify-center ${
+                disabled 
+                  ? "bg-gray-50 text-gray-400 cursor-not-allowed" 
+                  : "bg-gray-100 hover:bg-gray-200 active:bg-gray-300"
+              }`}
             >
               <Delete className="h-5 w-5" />
             </button>
@@ -234,14 +256,24 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             <button
               type="button"
               onClick={handleClear}
-              className="h-12 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              disabled={disabled}
+              className={`h-12 rounded-lg border transition-colors ${
+                disabled 
+                  ? "border-gray-200 text-gray-400 cursor-not-allowed" 
+                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
             >
               Clear
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="h-12 rounded-lg bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
+              disabled={disabled}
+              className={`h-12 rounded-lg flex items-center justify-center gap-2 transition-colors ${
+                disabled 
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                  : "bg-green-600 text-white hover:bg-green-700"
+              }`}
             >
               <Check className="h-5 w-5" />
               Done

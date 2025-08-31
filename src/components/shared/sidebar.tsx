@@ -6,31 +6,31 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/hooks/useSettings";
 import {
-  MdDashboard,
-  MdAddShoppingCart,
-  MdPeople,
-  MdInventory2,
-  MdInsights,
-  MdSettings,
-  MdEditNote,
-  MdTableRestaurant,
-  MdMenuBook,
-  MdSoupKitchen,
-  MdChevronLeft,
-  MdChevronRight
-} from "react-icons/md";
+  LayoutDashboard,
+  ShoppingCart,
+  Users,
+  Package,
+  BarChart3,
+  Settings,
+  FileText,
+  Utensils,
+  BookOpen,
+  ChefHat,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: MdDashboard },
-  { name: "New Order", href: "/dashboard/new-order", icon: MdAddShoppingCart },
-  { name: "Orders", href: "/dashboard/orders", icon: MdEditNote },
-  { name: "Tables", href: "/dashboard/tables", icon: MdTableRestaurant },
-  { name: "Menu", href: "/dashboard/menu", icon: MdMenuBook },
-  { name: "Inventory", href: "/dashboard/inventory", icon: MdInventory2 },
-  { name: "Staff", href: "/dashboard/staff", icon: MdPeople },
-  { name: "Recipes", href: "/dashboard/recipes", icon: MdSoupKitchen },
-  { name: "Reports", href: "/dashboard/reports", icon: MdInsights },
-  { name: "Settings", href: "/dashboard/settings", icon: MdSettings },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "New Order", href: "/dashboard/new-order", icon: ShoppingCart },
+  { name: "Orders", href: "/dashboard/orders", icon: FileText },
+  { name: "Tables", href: "/dashboard/tables", icon: Utensils },
+  { name: "Menu", href: "/dashboard/menu", icon: BookOpen },
+  { name: "Inventory", href: "/dashboard/inventory", icon: Package },
+  { name: "Staff", href: "/dashboard/staff", icon: Users },
+  { name: "Recipes", href: "/dashboard/recipes", icon: ChefHat },
+  { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -139,9 +139,9 @@ export default function Sidebar() {
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
-            <MdChevronRight className="h-4 w-4 text-gray-600" />
+            <ChevronRight className="h-4 w-4 text-gray-600" />
           ) : (
-            <MdChevronLeft className="h-4 w-4 text-gray-600" />
+            <ChevronLeft className="h-4 w-4 text-gray-600" />
           )}
         </button>
         

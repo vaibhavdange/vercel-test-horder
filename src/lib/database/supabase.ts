@@ -233,13 +233,39 @@ export class SupabaseDatabase {
   // Categories
   async getCategories() {
     try {
-      const { data, error } = await this.client
+      // First, get all categories
+      const { data: categories, error: categoriesError } = await this.client
         .from('categories')
         .select('*')
         .order('name', { ascending: true });
 
-      if (error) throw error;
-      return data;
+      if (categoriesError) throw categoriesError;
+
+      // Get product counts for each category
+      const { data: productCounts, error: countsError } = await this.client
+        .from('products')
+        .select('categoryId')
+        .eq('isActive', true);
+
+      if (countsError) throw countsError;
+
+      // Count products per category
+      const categoryCounts = new Map<string, number>();
+      productCounts?.forEach(product => {
+        if (product.categoryId) {
+          categoryCounts.set(product.categoryId, (categoryCounts.get(product.categoryId) || 0) + 1);
+        }
+      });
+
+      // Add count information to categories
+      const categoriesWithCounts = categories?.map(category => ({
+        ...category,
+        _count: {
+          products: categoryCounts.get(category.id) || 0
+        }
+      })) || [];
+
+      return categoriesWithCounts;
     } catch (error) {
       handleDatabaseError(error, 'fetch categories');
     }
@@ -263,6 +289,49 @@ export class SupabaseDatabase {
       return data;
     } catch (error) {
       handleDatabaseError(error, 'create category');
+    }
+  }
+
+  // Areas
+  async getAreas() {
+    try {
+      const { data, error } = await this.client
+        .from('areas')
+        .select(`
+          *,
+          floors (*)
+        `)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleDatabaseError(error, 'fetch areas');
+    }
+  }
+
+  async createArea(areaData: { name: string; description?: string; floorId: string }) {
+    try {
+      const { data, error } = await this.client
+        .from('areas')
+        .insert({
+          id: `area_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name: areaData.name,
+          description: areaData.description || null,
+          floorId: areaData.floorId,
+          isActive: true,
+          updatedAt: new Date().toISOString(),
+        })
+        .select(`
+          *,
+          floors (*)
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleDatabaseError(error, 'create area');
     }
   }
 

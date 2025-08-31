@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function RouteGuard({ children }: { children: React.ReactNode }) {
-  const { data: session, isLoading } = useSession();
+  const { session, loading: isLoading, isAuthenticated } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !session) {
+    if (!isLoading && !isAuthenticated) {
       router.push("/");
     }
-  }, [session, isLoading, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -27,7 +27,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     );
   }
 
-  if (!session) {
+  if (!isAuthenticated) {
     return null;
   }
 
