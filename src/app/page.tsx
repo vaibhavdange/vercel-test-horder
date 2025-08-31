@@ -75,8 +75,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-800 via-green-700 to-green-900 relative flex items-center justify-center p-4 overflow-hidden">
       {/* Brand Header */}
-      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-10">
-        <h1 className="text-4xl font-bold text-white drop-shadow-lg">{restaurantName}</h1>
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+        <h1 className="text-sm font-bold text-white drop-shadow-lg">Powered by HORDERS POS</h1>
       </div>
 
       {/* Login Form Container */}
@@ -84,7 +84,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-strong p-8 border border-gray-100">
           {/* Form Header */}
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Login!</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Login to {restaurantName}</h2>
             <p className="text-gray-600">Please enter your credentials below to continue</p>
           </div>
 
