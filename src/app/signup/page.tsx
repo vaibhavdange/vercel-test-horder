@@ -48,14 +48,14 @@ export default function SignupPage() {
   const restaurantName = settings?.restaurantName || 'HORDER';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-800 via-green-700 to-green-900 relative flex items-center justify-center p-4 overflow-hidden">
       {/* Brand Header */}
-      <div className="absolute top-8 left-1/2 transform -translate-x-1/2">
-        <h1 className="text-4xl font-bold text-green-600">{restaurantName}</h1>
+      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-10">
+        <h1 className="text-4xl font-bold text-white drop-shadow-lg">{restaurantName}</h1>
       </div>
 
       {/* Signup Form Container */}
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md relative z-10">
         <div className="bg-white rounded-2xl shadow-strong p-8 border border-gray-100">
           {/* Form Header */}
           <div className="text-center mb-8">

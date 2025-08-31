@@ -7,29 +7,26 @@ import RouteGuard from "@/components/shared/RouteGuard";
 import Header from "@/components/shared/header";
 import { useRealtimeUpdates } from "@/hooks";
 import HotRoutesWarmup from "@/components/shared/HotRoutesWarmup";
+import { useSession } from "@/lib/auth-client";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { session, loading: isLoading, isAuthenticated } = useSession();
   const router = useRouter();
   const pathname = usePathname();
 
   // Enable comprehensive real-time updates for the entire dashboard
   useRealtimeUpdates();
 
+  // Remove localStorage-based auth check
   useEffect(() => {
-    const authStatus = localStorage.getItem('isAuthenticated');
-    if (!authStatus) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/');
-      return;
     }
-    setIsAuthenticated(true);
-    setIsLoading(false);
-  }, [router]);
+  }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
     return (
