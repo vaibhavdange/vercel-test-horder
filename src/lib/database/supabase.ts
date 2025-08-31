@@ -292,49 +292,6 @@ export class SupabaseDatabase {
     }
   }
 
-  // Areas
-  async getAreas() {
-    try {
-      const { data, error } = await this.client
-        .from('areas')
-        .select(`
-          *,
-          floors (*)
-        `)
-        .order('name', { ascending: true });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      handleDatabaseError(error, 'fetch areas');
-    }
-  }
-
-  async createArea(areaData: { name: string; description?: string; floorId: string }) {
-    try {
-      const { data, error } = await this.client
-        .from('areas')
-        .insert({
-          id: `area_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          name: areaData.name,
-          description: areaData.description || null,
-          floorId: areaData.floorId,
-          isActive: true,
-          updatedAt: new Date().toISOString(),
-        })
-        .select(`
-          *,
-          floors (*)
-        `)
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      handleDatabaseError(error, 'create area');
-    }
-  }
-
   // Orders
   async getOrders(filters?: {
     status?: string;
