@@ -85,7 +85,7 @@ export default function LoginPage() {
           {/* Form Header */}
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Login to {restaurantName}</h2>
-            <p className="text-gray-600">Please enter your credentials below to continue</p>
+            <p className="text-gray-600">Please enter your credentials below</p>
           </div>
 
           {/* Login Form */}

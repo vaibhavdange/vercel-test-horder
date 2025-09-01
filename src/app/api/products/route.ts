@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, price, cost, stockQuantity, minStockLevel, categoryId, barcode, taxRate, image, thumbnail, extras } = body;
+    const { name, description, price, cost, stockQuantity, minStockLevel, categoryId, barcode, taxRate, image, thumbnail, extras, isAlcohol } = body;
 
     if (!name || price === undefined || price === null || String(price).trim() === '') {
       return NextResponse.json(
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       taxRate: Number.isFinite(parsedTaxRate) ? parsedTaxRate : 0,
       image: normalizedImage,
       thumbnail: normalizedThumb,
+      isAlcohol: Boolean(isAlcohol),
       extras: Array.isArray(extras)
         ? extras.map((e: any) => ({
             name: e?.name,

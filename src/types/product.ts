@@ -28,6 +28,7 @@ export interface Product {
   image?: string;
   thumbnail?: string;
   isActive: boolean;
+  isAlcohol?: boolean;
   createdAt: Date;
   updatedAt: Date;
   category?: Category;
@@ -47,6 +48,7 @@ export interface CreateProductData {
   taxRate?: number;
   taxCategoryId?: string;
   serviceChargeRate?: number;
+  isAlcohol?: boolean;
   extras?: Array<{ name: string; price: number; stockItemId?: string }>;
 }
 

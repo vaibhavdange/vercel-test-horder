@@ -117,3 +117,24 @@ export const useDefaultTaxRate = () => {
     refetchOnReconnect: true,
   });
 };
+
+// Whether product-level tax can be configured on products
+export const useProductLevelTaxEnabled = () => {
+  return useQuery({
+    queryKey: ["billing-settings", "product_level_tax_enabled"],
+    queryFn: async (): Promise<boolean> => {
+      const response = await fetch(`${API_BASE}?key=product_level_tax_enabled`);
+      if (!response.ok) {
+        return false; // Disabled by default
+      }
+      const settings = await response.json();
+      if (!Array.isArray(settings) || settings.length === 0) return false;
+      return String(settings[0].value) === 'true';
+    },
+    staleTime: 8000,
+    refetchInterval: 8000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+};

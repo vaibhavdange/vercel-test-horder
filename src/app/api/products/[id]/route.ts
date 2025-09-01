@@ -62,6 +62,10 @@ export async function PUT(
     if (updates.image === '') delete updates.image;
     if (updates.thumbnail === '') delete updates.thumbnail;
 
+    if (typeof updates.isAlcohol !== 'undefined') {
+      updates.isAlcohol = Boolean(updates.isAlcohol);
+    }
+
     const product = await supabaseDb.updateProduct(params.id, updates);
     return NextResponse.json(product);
   } catch (error) {

@@ -10,6 +10,7 @@ interface ServiceChargeConfig {
   defaultTaxRate: number;
   serviceChargeEnabled: boolean;
   taxEnabled: boolean;
+  productLevelTaxEnabled: boolean;
   roundToNearest: number;
   applyToDelivery: boolean;
   applyToTakeaway: boolean;
@@ -26,6 +27,7 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
     defaultTaxRate: 0,
     serviceChargeEnabled: true,
     taxEnabled: true,
+    productLevelTaxEnabled: false,
     roundToNearest: 0,
     applyToDelivery: true,
     applyToTakeaway: false,
@@ -65,6 +67,9 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
       }
       if (keyToValue['tax_enabled']) {
         setConfig(prev => ({ ...prev, taxEnabled: keyToValue['tax_enabled'] === 'true' }));
+      }
+      if (keyToValue['product_level_tax_enabled']) {
+        setConfig(prev => ({ ...prev, productLevelTaxEnabled: keyToValue['product_level_tax_enabled'] === 'true' }));
       }
       if (keyToValue['tax_types']) {
         try {
@@ -110,6 +115,13 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
         key: "tax_enabled",
         value: config.taxEnabled.toString(),
         description: "Whether taxes are enabled",
+        isActive: true,
+      });
+
+      await createBillingSetting.mutateAsync({
+        key: "product_level_tax_enabled",
+        value: config.productLevelTaxEnabled.toString(),
+        description: "Whether product-level tax editing is enabled",
         isActive: true,
       });
 
@@ -165,6 +177,7 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
       defaultTaxRate: defaultTaxRate || 0,
       serviceChargeEnabled: true,
       taxEnabled: true,
+      productLevelTaxEnabled: false,
       roundToNearest: 0,
       applyToDelivery: true,
       applyToTakeaway: false,
@@ -312,6 +325,18 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
               </label>
             </div>
 
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={config.productLevelTaxEnabled}
+                  onChange={(e) => setConfig({ ...config, productLevelTaxEnabled: e.target.checked })}
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Enable Product Level Tax</span>
+              </label>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Default Tax Rate (%)
@@ -327,7 +352,7 @@ export default function ServiceChargesSettings({ className = '' }: ServiceCharge
                 placeholder="e.g., 18.5"
               />
               <p className="text-xs text-gray-500 mt-1">
-                This rate will be applied to all orders unless overridden at the product level
+                This rate applies by default. When product-level tax is enabled, individual products can override this rate.
               </p>
             </div>
 

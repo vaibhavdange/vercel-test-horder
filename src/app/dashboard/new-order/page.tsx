@@ -1108,20 +1108,20 @@ export default function NewOrderPage() {
                 <span>Error loading categories</span>
               </div>
             ) : (
-              <div className="flex space-x-4 overflow-x-auto pb-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {displayCategories.map((category: DisplayCategory) => (
                   <button
                     key={category.id}
                     onClick={() => setActiveCategory(category.id)}
-                    className={`w-32 h-32 flex-shrink-0 rounded-xl border-2 transition-all duration-200 ${
+                    className={`aspect-square rounded-xl border-2 transition-all duration-200 hover:scale-105 ${
                       activeCategory === category.id
                         ? "border-green-200 bg-green-50 text-green-700 shadow-soft"
                         : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >
-                    <div className="text-center h-full flex flex-col items-center justify-center p-4">
-                      <div className="text-4xl mb-3">{category.icon}</div>
-                      <div className="font-semibold text-base">{category.name}</div>
+                    <div className="text-center h-full flex flex-col items-center justify-center p-3">
+                      <div className="text-3xl mb-2">{category.icon}</div>
+                      <div className="font-semibold text-sm leading-tight">{category.name}</div>
                     </div>
                   </button>
                 ))}

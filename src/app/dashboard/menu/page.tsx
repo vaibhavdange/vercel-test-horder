@@ -14,6 +14,7 @@ import { EmojiPicker } from "@/components/ui/EmojiPicker";
 
 import { useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/use-categories";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useProductLevelTaxEnabled } from "@/hooks/use-billing-settings";
 
 export default function MenuPage() {
   const [activeCategory, setActiveCategory] = useState("All");
@@ -55,6 +56,7 @@ export default function MenuPage() {
   
   // Currency formatter
   const { format, symbol } = useCurrency();
+  const { data: productLevelTaxEnabled = false } = useProductLevelTaxEnabled();
 
   // Category form state
   const [categoryForm, setCategoryForm] = useState({
@@ -77,6 +79,7 @@ export default function MenuPage() {
     image: "",
     thumbnail: "",
     isActive: true,
+    isAlcohol: false,
     extras: [] as { name: string; price: string; stockItemId?: string }[],
   });
 
@@ -264,7 +267,7 @@ export default function MenuPage() {
       setShowAddProduct(false);
       setProductForm({
         name: "", description: "", price: "", cost: "", stockQuantity: "", 
-        minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, extras: []
+        minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, isAlcohol: false, extras: []
       });
     } catch (error) {
       console.error("Failed to create product:", error);
@@ -287,6 +290,7 @@ export default function MenuPage() {
       image: product.image || "",
       thumbnail: product.thumbnail || "",
       isActive: product.isActive,
+      isAlcohol: Boolean((product as any).isAlcohol),
       extras: ((product as any).extras || []).map((e: any) => ({
         name: e.name,
         price: String(e.price ?? 0),
@@ -347,6 +351,7 @@ export default function MenuPage() {
         stockQuantity,
         minStockLevel,
         taxRate,
+        isAlcohol: Boolean(productForm.isAlcohol),
         extras: productForm.extras
           .filter((e) => e.name && e.price !== "")
           .map((e) => ({ name: e.name.trim(), price: parseFloat(e.price) || 0, stockItemId: e.stockItemId })),
@@ -1054,8 +1059,12 @@ export default function MenuPage() {
                   placeholder="0.0"
                   value={productForm.taxRate}
                   onChange={(e) => setProductForm({ ...productForm, taxRate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  disabled={!productLevelTaxEnabled}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${!productLevelTaxEnabled ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'border-gray-300'}`}
                 />
+                {!productLevelTaxEnabled && (
+                  <p className="text-xs text-gray-500 mt-1">Enable Product Level Tax in Settings to edit.</p>
+                )}
               </div>
               
               <div>
@@ -1077,6 +1086,18 @@ export default function MenuPage() {
                   onImageUpload={handleImageUpload}
                   className="w-full"
                 />
+              </div>
+              {/* Alcohol flag */}
+              <div className="col-span-2">
+                <label className="flex items-center space-x-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(productForm.isAlcohol)}
+                    onChange={(e) => setProductForm({ ...productForm, isAlcohol: e.target.checked })}
+                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span>Contains Alcohol</span>
+                </label>
               </div>
               {/* Add Extra Section */}
               <div className="col-span-2">
@@ -1224,8 +1245,12 @@ export default function MenuPage() {
                   placeholder="0.0"
                   value={productForm.taxRate}
                   onChange={(e) => setProductForm({ ...productForm, taxRate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  disabled={!productLevelTaxEnabled}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${!productLevelTaxEnabled ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'border-gray-300'}`}
                 />
+                {!productLevelTaxEnabled && (
+                  <p className="text-xs text-gray-500 mt-1">Enable Product Level Tax in Settings to edit.</p>
+                )}
               </div>
               
               <div>
@@ -1247,6 +1272,30 @@ export default function MenuPage() {
                   onImageUpload={handleImageUpload}
                   className="w-full"
                 />
+              </div>
+              {/* Alcohol flag */}
+              <div className="col-span-2">
+                <label className="flex items-center space-x-2 text-sm text-gray-900">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(productForm.isAlcohol)}
+                    onChange={(e) => setProductForm({ ...productForm, isAlcohol: e.target.checked })}
+                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span>Contains Alcohol</span>
+                </label>
+              </div>
+              {/* Alcohol flag */}
+              <div className="col-span-2">
+                <label className="flex items-center space-x-2 text-sm text-gray-900">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(productForm.isAlcohol)}
+                    onChange={(e) => setProductForm({ ...productForm, isAlcohol: e.target.checked })}
+                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span>Contains Alcohol</span>
+                </label>
               </div>
               {/* Add Extra Section */}
               <div className="col-span-2">

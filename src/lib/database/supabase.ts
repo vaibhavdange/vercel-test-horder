@@ -88,6 +88,7 @@ export class SupabaseDatabase {
     taxRate: number;
     image?: string;
     thumbnail?: string;
+    isAlcohol?: boolean;
     extras?: Array<{ name: string; price: number; stockItemId?: string }>;
   }) {
     try {
@@ -107,6 +108,7 @@ export class SupabaseDatabase {
           image: productData.image,
           thumbnail: productData.thumbnail,
           isActive: true,
+          isAlcohol: productData.isAlcohol ?? false,
           updatedAt: new Date().toISOString(),
         })
         .select(`
@@ -169,6 +171,7 @@ export class SupabaseDatabase {
     image: string;
     thumbnail: string;
     isActive: boolean;
+    isAlcohol: boolean;
   }>) {
     try {
       const { data, error } = await this.client
@@ -186,6 +189,7 @@ export class SupabaseDatabase {
           image: updates.image,
           thumbnail: updates.thumbnail,
           isActive: updates.isActive,
+          isAlcohol: updates.isAlcohol,
           updatedAt: new Date().toISOString(),
         })
         .eq('id', id)
