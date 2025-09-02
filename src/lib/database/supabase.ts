@@ -41,7 +41,8 @@ export class SupabaseDatabase {
             name,
             icon
           ),
-          product_extras (*)
+          product_extras (*),
+          product_variants (*)
         `);
 
       if (filters?.categoryId) {
@@ -66,8 +67,12 @@ export class SupabaseDatabase {
       const transformedData = data?.map((product: any) => ({
         ...product,
         category: product.categories,
+        extras: product.product_extras,
+        variants: product.product_variants,
         // Remove the plural version to avoid confusion
-        categories: undefined
+        categories: undefined,
+        product_extras: undefined,
+        product_variants: undefined
       })) || [];
       
       return transformedData;
@@ -90,6 +95,7 @@ export class SupabaseDatabase {
     thumbnail?: string;
     isAlcohol?: boolean;
     extras?: Array<{ name: string; price: number; stockItemId?: string }>;
+    variants?: Array<{ name: string; price: number }>;
   }) {
     try {
       const { data: product, error: productError } = await this.client
@@ -141,6 +147,26 @@ export class SupabaseDatabase {
 
         if (extrasError) {
           console.error('Failed to create product extras:', extrasError);
+        }
+      }
+
+      // Create variants if provided
+      if (productData.variants && productData.variants.length > 0) {
+        const variantsData = productData.variants.map(variant => ({
+          id: `var_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          productId: product.id,
+          name: variant.name,
+          price: variant.price,
+          isActive: true,
+          updatedAt: new Date().toISOString(),
+        }));
+
+        const { error: variantsError } = await this.client
+          .from('product_variants')
+          .insert(variantsData);
+
+        if (variantsError) {
+          console.error('Failed to create product variants:', variantsError);
         }
       }
 
@@ -200,7 +226,8 @@ export class SupabaseDatabase {
             name,
             icon
           ),
-          product_extras (*)
+          product_extras (*),
+          product_variants (*)
         `)
         .single();
 
@@ -210,8 +237,12 @@ export class SupabaseDatabase {
       const transformedData = {
         ...data,
         category: data.categories,
+        extras: data.product_extras,
+        variants: data.product_variants,
         // Remove the plural version to avoid confusion
-        categories: undefined
+        categories: undefined,
+        product_extras: undefined,
+        product_variants: undefined
       };
       
       return transformedData;
@@ -231,6 +262,80 @@ export class SupabaseDatabase {
       return { success: true };
     } catch (error) {
       handleDatabaseError(error, 'delete product');
+    }
+  }
+
+  // Product Variants
+  async getProductVariants(productId: string) {
+    try {
+      const { data, error } = await this.client
+        .from('product_variants')
+        .select('*')
+        .eq('productId', productId)
+        .eq('isActive', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      handleDatabaseError(error, 'fetch product variants');
+    }
+  }
+
+  async createProductVariant(productId: string, variantData: { name: string; price: number }) {
+    try {
+      const { data, error } = await this.client
+        .from('product_variants')
+        .insert({
+          id: `var_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          productId,
+          name: variantData.name,
+          price: variantData.price,
+          isActive: true,
+          updatedAt: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleDatabaseError(error, 'create product variant');
+    }
+  }
+
+  async updateProductVariant(id: string, updates: Partial<{ name: string; price: number; isActive: boolean }>) {
+    try {
+      const { data, error } = await this.client
+        .from('product_variants')
+        .update({
+          name: updates.name,
+          price: updates.price,
+          isActive: updates.isActive,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleDatabaseError(error, 'update product variant');
+    }
+  }
+
+  async deleteProductVariant(id: string) {
+    try {
+      const { error } = await this.client
+        .from('product_variants')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      handleDatabaseError(error, 'delete product variant');
     }
   }
 
@@ -707,6 +812,11 @@ export class SupabaseDatabase {
             status,
             paymentStatus,
             totalAmount,
+            subtotal,
+            taxAmount,
+            serviceChargeAmount,
+            serviceChargeRate,
+            discountAmount,
             createdAt,
             orderType,
             tableId,

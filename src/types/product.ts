@@ -1,10 +1,16 @@
-import { Category } from './category';
-import { TaxCategory } from './orders';
+import { Category } from "./category";
+import { TaxCategory } from "./settings";
 
 export interface ProductExtra {
   id: string;
-  productId: string;
+  name: string;
+  price: number;
   stockItemId?: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  productId: string;
   name: string;
   price: number;
   isActive: boolean;
@@ -34,6 +40,7 @@ export interface Product {
   category?: Category;
   taxCategory?: TaxCategory;
   extras?: ProductExtra[];
+  variants?: ProductVariant[];
 }
 
 export interface CreateProductData {
@@ -48,13 +55,32 @@ export interface CreateProductData {
   taxRate?: number;
   taxCategoryId?: string;
   serviceChargeRate?: number;
+  image?: string;
+  thumbnail?: string;
+  isActive?: boolean;
   isAlcohol?: boolean;
   extras?: Array<{ name: string; price: number; stockItemId?: string }>;
+  variants?: Array<{ name: string; price: number }>;
 }
 
-export interface UpdateProductData extends Partial<CreateProductData> {
-  id: string;
+export interface UpdateProductData {
+  barcode?: string;
+  name?: string;
+  description?: string;
+  price?: number;
+  cost?: number;
+  categoryId?: string;
+  stockQuantity?: number;
+  minStockLevel?: number;
+  taxRate?: number;
+  taxCategoryId?: string;
+  serviceChargeRate?: number;
+  image?: string;
+  thumbnail?: string;
   isActive?: boolean;
+  isAlcohol?: boolean;
+  extras?: Array<{ name: string; price: number; stockItemId?: string }>;
+  variants?: Array<{ name: string; price: number }>;
 }
 
 export interface ProductSearchParams {

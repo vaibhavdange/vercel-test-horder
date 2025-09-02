@@ -8,6 +8,7 @@ import { Order } from '@/types/orders';
 import { useTables } from '@/hooks/useTables';
 import { TableCard } from '@/components/tables/TableCard';
 import { parseSupabaseTimestamp } from '@/lib/time';
+import { printBillFromOrder } from '@/lib/print/bill';
 import {
   DndContext,
   closestCenter,
@@ -581,12 +582,15 @@ export default function TablesPage() {
                         customerPhone: order.customerPhone,
                         customerId: order.customerId,
                         existingItems: (order.orderItems || []).map((item: any) => ({
-                          id: item.productId,
-                          name: item.productName,
-                          price: item.unitPrice,
+                          key: `existing-${item.productId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+                          productId: item.productId,
+                          productName: item.productName,
+                          basePrice: item.unitPrice,
                           quantity: item.quantity,
-                          total: item.totalPrice,
-                          customizationNotes: item.customizationNotes
+                          totalPrice: item.totalPrice,
+                          addons: [],
+                          variant: undefined,
+                          customizationNotes: item.customizationNotes || ''
                         }))
                       };
                       localStorage.setItem('amendOrderData', JSON.stringify(orderData));
@@ -717,12 +721,15 @@ export default function TablesPage() {
                   customerPhone: order.customerPhone,
                   customerId: order.customerId,
                   existingItems: (order.orderItems || []).map((item: any) => ({
-                    id: item.productId,
-                    name: item.productName,
-                    price: item.unitPrice,
+                    key: `existing-${item.productId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+                    productId: item.productId,
+                    productName: item.productName,
+                    basePrice: item.unitPrice,
                     quantity: item.quantity,
-                    total: item.totalPrice,
-                    customizationNotes: item.customizationNotes
+                    totalPrice: item.totalPrice,
+                    addons: [],
+                    variant: undefined,
+                    customizationNotes: item.customizationNotes || ''
                   }))
                 };
                 localStorage.setItem('amendOrderData', JSON.stringify(orderData));
@@ -743,7 +750,14 @@ export default function TablesPage() {
             onClose={() => { setIsPaymentOpen(false); setSelectedOrderForPayment(null); }}
             order={selectedOrderForPayment as any}
             onPaymentComplete={async (transaction, paymentDetails) => {
-              console.log('Print disabled: bill printing is temporarily removed.');
+              try {
+                // Print the bill after successful payment
+                if (selectedOrderForPayment) {
+                  await printBillFromOrder(selectedOrderForPayment as any, true, paymentDetails);
+                }
+              } catch (error) {
+                console.error('Failed to print bill after payment:', error);
+              }
               setIsPaymentOpen(false);
               setSelectedOrderForPayment(null);
             }}

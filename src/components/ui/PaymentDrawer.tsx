@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus, Banknote } from "lucide-react";
-// print bill has been removed for now; we'll wire this later
+import { printBillFromOrder } from "@/lib/print/bill";
 import { useCurrency } from "@/hooks/useCurrency";
 import { NumericKeypad } from "./NumericKeypad";
 import { OrderItem, Order } from "@/types/orders";
+import { calculateLegalBilling, LegalBillingResult, BillingConfig } from "@/lib/utils/legal-billing";
+import { useDefaultAlcoholTaxRate } from "@/hooks/use-billing-settings";
+import { useProducts } from '@/hooks/use-products';
 
 interface PaymentMethod {
   id: string;
@@ -62,11 +65,23 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const [discountInput, setDiscountInput] = useState<string>("");
   const [selectedQuickDiscount, setSelectedQuickDiscount] = useState<string | null>(null);
 
-  // Reset discount when order changes
+  // Service charge state
+  const [isServiceChargeEnabled, setIsServiceChargeEnabled] = useState<boolean>(false);
+  const [serviceChargeRate, setServiceChargeRate] = useState<number>(5);
+  const [selectedQuickServiceCharge, setSelectedQuickServiceCharge] = useState<string | null>(null);
+
+  // Get alcohol tax rate
+  const { data: defaultAlcoholTaxRate = 18 } = useDefaultAlcoholTaxRate();
+  const { data: allProducts, isLoading: productsLoading } = useProducts();
+
+  // Reset discount and service charge when order changes
   useEffect(() => {
     setIsDiscountEnabled(false);
     setDiscountInput("");
     setSelectedQuickDiscount(null);
+    setIsServiceChargeEnabled(false);
+    setServiceChargeRate(5);
+    setSelectedQuickServiceCharge(null);
   }, [order.id]);
 
   type KeypadTarget = "cash" | "partial" | "discount";
@@ -86,6 +101,17 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
       console.error('Error loading cash button settings:', error);
     }
   }, []);
+
+  // Safe JSON parse helper
+  const safeJsonParse = (jsonString: string | null, defaultValue: any = {}) => {
+    if (!jsonString) return defaultValue;
+    try {
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error('Error parsing JSON:', error);
+      return defaultValue;
+    }
+  };
 
   // Listen for cash button configuration changes
   useEffect(() => {
@@ -178,7 +204,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
           serviceEnabled: map['service_charge_enabled'] ? map['service_charge_enabled'] === 'true' : true,
           defaultTaxRate: map['default_tax_rate'] ? parseFloat(map['default_tax_rate']) || 0 : 0,
           defaultServiceRate: map['default_service_charge_rate'] ? parseFloat(map['default_service_charge_rate']) || 0 : 0,
-          taxTypes: (() => { try { const t = JSON.parse(map['tax_types'] || '[]'); return Array.isArray(t) ? t : []; } catch { return []; } })(),
+          taxTypes: safeJsonParse(map['tax_types'], []),
         };
         setBillingConfig(cfg);
       } catch {}
@@ -186,55 +212,68 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
     return () => { cancelled = true; };
   }, []);
 
-  // Compute subtotal from items (fallback) if missing
+  // Fix reduce/map types
   const computedSubtotal = (() => {
-    const items = (order.orderItems && order.orderItems.length > 0)
+    const items: OrderItem[] = (order.orderItems && order.orderItems.length > 0)
       ? order.orderItems
       : ((order as any).order_items && (order as any).order_items.length > 0)
       ? (order as any).order_items
       : (((order as any).items || []) as OrderItem[]);
-    const sum = items.reduce((acc, it) => acc + (it.quantity || 0) * (it.unitPrice || 0), 0);
+    const sum = items.reduce((acc: number, it: OrderItem) => acc + (it.totalPrice ?? (it.quantity || 0) * (it.unitPrice || 0)), 0);
     return typeof order.subtotal === 'number' ? order.subtotal : sum;
   })();
 
 
-  // Calculate totals following accounting standards: Subtotal → Discount → Tax → Service Charge → Total
-  const parsedDiscount = parseFloat(discountInput);
-  const discountNumeric = Number.isFinite(parsedDiscount) ? parsedDiscount : 0;
-  const calculatedDiscountAmount = isDiscountEnabled
-    ? (discountMode === "percent"
-        ? Math.min(100, Math.max(0, discountNumeric)) / 100 * computedSubtotal  // Apply to subtotal only
-        : Math.min(Math.max(0, discountNumeric), computedSubtotal))  // Apply to subtotal only
-    : 0;
-  
-  // Calculate amounts after discount
-  const subtotalAfterDiscount = Math.max(0, computedSubtotal - calculatedDiscountAmount);
-  
-  // Use the tax and service charge amounts already calculated in the order
-  // These amounts are calculated using individual product tax rates in the new order page
-  const serviceChargeAmountCalc = order.serviceChargeAmount || 0;
-  const taxAmountCalc = order.taxAmount || 0;
-  
-  // Calculate final total with discount applied
-  const finalTotal = subtotalAfterDiscount + serviceChargeAmountCalc + taxAmountCalc;
-  
-  // Debug logging
-  console.log('PaymentDrawer - Order data:', {
-    orderId: order.id,
-    totalAmount: order.totalAmount,
-    subtotal: order.subtotal,
-    taxAmount: order.taxAmount,
-    serviceChargeAmount: order.serviceChargeAmount,
-    computedSubtotal,
-    calculatedDiscountAmount,
-    subtotalAfterDiscount,
-    finalTotal,
-    isDiscountEnabled,
+  // Get order items for calculation
+  const orderItems = (order.orderItems && order.orderItems.length > 0)
+    ? order.orderItems
+    : ((order as any).order_items && (order as any).order_items.length > 0)
+    ? (order as any).order_items
+    : (((order as any).items || []) as OrderItem[]);
+
+  // Convert order items to cart items format for legal billing calculation
+  const cartItems = orderItems.map((item: OrderItem) => ({
+    productId: item.productId,
+    productName: item.productName,
+    quantity: item.quantity || 0,
+    basePrice: item.unitPrice || 0,
+    totalPrice: item.totalPrice ?? (item.quantity || 0) * (item.unitPrice || 0),
+    addons: [],
+    variant: undefined,
+    customizationNotes: item.customizationNotes || ""
+  }));
+
+  // Get products data for tax calculation (we'll need to fetch this)
+  const products = allProducts;
+
+  // Legal billing configuration
+  const legalBillingConfig: BillingConfig = {
+    defaultTaxRate: 5, // Default 5% GST
+    defaultAlcoholTaxRate: defaultAlcoholTaxRate,
+    defaultServiceChargeRate: 5, // Default 5% service charge
+    serviceChargeEnabled: isServiceChargeEnabled,
+    serviceChargeRate: serviceChargeRate
+  };
+
+  // Calculate legal-compliant billing
+  const legalBilling = calculateLegalBilling(
+    cartItems,
+    allProducts ?? [],
     discountInput,
     discountMode,
-    orderItems: order.orderItems,
-    order_items: (order as any).order_items
-  });
+    isDiscountEnabled,
+    legalBillingConfig
+  );
+
+  // Extract values for backward compatibility
+  const calculatedDiscountAmount = legalBilling.discountAmount;
+  const serviceChargeAmountCalc = legalBilling.serviceChargeAmount;
+  const taxAmountCalc = legalBilling.foodSGST + legalBilling.foodCGST + legalBilling.alcoholVAT;
+  const finalTotal = legalBilling.totalPayable;
+
+  // Debug logging
+  console.log('PaymentDrawer - Legal Billing:', legalBilling);
+  
   const changeDue = Math.max(0, (cashReceived || 0) - (finalTotal || 0));
   const amountRemaining = Math.max(0, (finalTotal || 0) - (cashReceived || 0));
   const exactCashAmount = finalTotal;
@@ -303,7 +342,11 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   };
 
   const handleReprint = async () => {
-    console.log('Print disabled: bill printing is temporarily removed.');
+    try {
+      await printBillFromOrder(order, order.paymentStatus === "paid");
+    } catch (error) {
+      console.error('Failed to reprint bill:', error);
+    }
   };
 
   const handleEmailReceipt = () => {
@@ -395,7 +438,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
         // Discount persistence
         discountAmount: calculatedDiscountAmount,
         discountMode: isDiscountEnabled ? discountMode : undefined,
-        discountValue: isDiscountEnabled ? (discountNumeric || 0) : undefined,
+        discountValue: isDiscountEnabled ? parseFloat(discountInput) || 0 : undefined,
         finalTotal: finalTotal,
       };
 
@@ -497,6 +540,10 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
 
   if (!isOpen) return null;
 
+  if (productsLoading || !allProducts) {
+    return <div className="p-8 text-center text-gray-500">Loading products...</div>;
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
@@ -538,13 +585,20 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                     <h4 className="text-sm font-medium text-gray-700">Items Ordered:</h4>
                     <div className="space-y-1">
                       {orderItemsList.map((item: OrderItem, index: number) => (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                          <span className="font-mono text-gray-600">
-                            {item.quantity}x {item.productName}
-                          </span>
-                          <span className="font-mono text-gray-800">
-                            {Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(((item.quantity || 0) * (item.unitPrice || 0)))}
-                          </span>
+                        <div key={index} className="flex flex-col text-sm space-y-0.5">
+                          <div className="flex justify-between items-center">
+                            <span className="font-mono text-gray-600">
+                              {item.quantity}x {item.productName}
+                            </span>
+                            <span className="font-mono text-gray-800">
+                              {Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(item.totalPrice ?? ((item.quantity || 0) * (item.unitPrice || 0)))}
+                            </span>
+                          </div>
+                          {item.customizationNotes && (
+                            <div className="ml-4 text-xs text-gray-500 italic truncate">
+                              {item.customizationNotes}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -564,7 +618,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                                 {ex.quantity}x {ex.name}
                               </span>
                               <span className="font-mono text-gray-800">
-                                {Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(ex.unitPrice ? ex.unitPrice * ex.quantity : 0)}
+                                {Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(ex.unitPrice ? ex.unitPrice * ex.quantity : 0)}
                               </span>
                             </div>
                           ))}
@@ -575,48 +629,87 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
 
                   {/* Order Details with lighter dividers */}
                   <div className="space-y-3 pt-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">KOT #{order.kotNumber || 'N/A'}</span>
-                      <span className="font-medium">{order.customerName || "Walk-in Customer"}</span>
-                    </div>
                     <div className="border-t border-gray-100 pt-3 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(computedSubtotal || 0)}</span>
-                      </div>
-                      {serviceChargeAmountCalc > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Service Charge:</span>
-                          <span className="text-orange-600">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(serviceChargeAmountCalc || 0)}</span>
-                        </div>
-                      )}
-                      {gstSlabBreakdown.length > 0 ? (
-                        <div className="space-y-1">
-                          {gstSlabBreakdown.map((row, idx) => (
-                            <div key={idx} className="flex justify-between text-sm">
-                              <span className="text-gray-600">GST {row.rate}%</span>
-                              <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(row.tax || 0)}</span>
+                      {/* Food Bill Breakdown */}
+                      {legalBilling.foodItems.length > 0 && (
+                        <div className="space-y-1 border-l-2 border-green-200 pl-3 mt-2">
+                          <div className="text-xs font-bold text-green-700">FOOD BILL</div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Subtotal:</span>
+                            <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.foodSubtotal)}</span>
+                          </div>
+                          {legalBilling.foodDiscount > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">Discount:</span>
+                              <span className="text-red-600">-{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.foodDiscount)}</span>
                             </div>
-                          ))}
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">GST 5% (SGST 2.5%+CGST 2.5%)</span>
-                            <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmountCalc || 0)}</span>
+                          )}
+                          {legalBilling.foodServiceCharge > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">Service Charge:</span>
+                              <span className="text-green-600">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.foodServiceCharge)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-gray-600">Grand Total (before tax):</span>
+                            <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.foodGrandBeforeTax)}</span>
+                          </div>
+                          {/* SGST/CGST split */}
+                          {legalBilling.foodSGST > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">SGST (2.5%):</span>
+                              <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.foodSGST)}</span>
+                            </div>
+                          )}
+                          {legalBilling.foodCGST > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">CGST (2.5%):</span>
+                              <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.foodCGST)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm font-bold">
+                            <span className="text-gray-600">Food Grand Total:</span>
+                            <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.foodTotal)}</span>
                           </div>
                         </div>
-                      ) : (
-                        taxAmountCalc > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">GST 5% (SGST 2.5%+CGST 2.5%):</span>
-                            <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(taxAmountCalc || 0)}</span>
-                          </div>
-                        )
                       )}
-                      {(isDiscountEnabled ? calculatedDiscountAmount : (order.discountAmount || 0)) > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Discount:</span>
-                          <span className="text-green-600">-{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(isDiscountEnabled ? calculatedDiscountAmount : (order.discountAmount || 0))}</span>
+                      {/* Bar Bill Breakdown */}
+                      {legalBilling.alcoholItems.length > 0 && (
+                        <div className="space-y-1 border-l-2 border-blue-200 pl-3 mt-2">
+                          <div className="text-xs font-bold text-blue-700">BAR BILL</div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600">Subtotal:</span>
+                            <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.alcoholSubtotal)}</span>
+                          </div>
+                          {legalBilling.alcoholDiscount > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">Discount:</span>
+                              <span className="text-red-600">-{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.alcoholDiscount)}</span>
+                            </div>
+                          )}
+                          {legalBilling.alcoholServiceCharge > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">Service Charge:</span>
+                              <span className="text-green-600">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.alcoholServiceCharge)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-gray-600">Grand Total (before tax):</span>
+                            <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.alcoholGrandBeforeTax)}</span>
+                          </div>
+                          {legalBilling.alcoholVAT > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-600">VAT (18%):</span>
+                              <span className="text-gray-800">+{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.alcoholVAT)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm font-bold">
+                            <span className="text-gray-600">Bar Grand Total:</span>
+                            <span className="text-gray-800">{Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(legalBilling.alcoholTotal)}</span>
+                          </div>
                         </div>
                       )}
+
                     </div>
                   </div>
                 </>
@@ -627,7 +720,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-gray-900">Total Payable:</span>
                   <span className="text-3xl font-bold text-green-600">
-                    {Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR' }).format(finalTotal || 0)}
+                    {Intl.NumberFormat('en-US', { style: 'currency', currency: (typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR' }).format(finalTotal || 0)}
                   </span>
                 </div>
 
@@ -743,6 +836,62 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                   </label>
                 </div>
 
+                {/* Service Charge Toggle */}
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Service Charge</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isServiceChargeEnabled}
+                      onChange={(e) => setIsServiceChargeEnabled(e.target.checked)}
+                      disabled={showReceipt}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                      showReceipt ? "opacity-50 cursor-not-allowed bg-gray-200" : "bg-gray-200 peer-checked:bg-blue-600"
+                    }`}></div>
+                  </label>
+                </div>
+
+                {isServiceChargeEnabled && (
+                  <div className="mt-3 space-y-3">
+                    {/* Quick service charge buttons */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {[5, 10, 15].map((rate) => (
+                        <button
+                          key={rate}
+                          onClick={() => {
+                            setServiceChargeRate(rate);
+                            setSelectedQuickServiceCharge(`${rate}`);
+                          }}
+                          disabled={showReceipt}
+                          className={`py-2 px-3 rounded-lg transition-colors duration-200 ${
+                            selectedQuickServiceCharge === `${rate}`
+                              ? "bg-blue-100 text-blue-800 border border-blue-300"
+                              : "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                          }`}
+                        >
+                          <span className="text-sm font-medium">{rate}%</span>
+                        </button>
+                      ))}
+                      <input
+                        type="number"
+                        value={serviceChargeRate}
+                        placeholder="Custom"
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value);
+                          if (!isNaN(value) && value >= 0 && value <= 100) {
+                            setServiceChargeRate(value);
+                            setSelectedQuickServiceCharge(null);
+                          }
+                        }}
+                        disabled={showReceipt}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-right"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Discount Toggle */}
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-sm text-gray-600">Discount</span>
@@ -776,7 +925,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                           className={`ml-1 px-3 py-1 text-sm rounded-full ${discountMode === 'amount' ? 'bg-white shadow text-gray-900' : 'text-gray-600'}`}
                           onClick={() => { setDiscountMode('amount'); setSelectedQuickDiscount(null); }}
                           disabled={showReceipt}
-                        >{getCurrencySymbol((typeof window !== 'undefined' && JSON.parse(localStorage.getItem('settings.general') || '{}')?.currency) || 'INR')}
+                        >{getCurrencySymbol((typeof window !== 'undefined' && safeJsonParse(localStorage.getItem('settings.general'))?.currency) || 'INR')}
                         </button>
                       </div>
                     </div>

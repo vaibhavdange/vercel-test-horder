@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, Calendar, Wrench, Users, MoreVertical, Edit, Trash2, CheckCircle, XCircle, Clock, MapPin, CreditCard, PlusCircle, AlertCircle } from 'lucide-react';
+import { Eye, Calendar, Wrench, Users, MoreVertical, Edit, Trash2, CheckCircle, XCircle, Clock, MapPin, CreditCard, AlertCircle } from 'lucide-react';
 import { Table, TableStatus } from '@/types/tables';
 import { parseSupabaseTimestamp, formatHms } from '@/lib/time';
 import { useCurrency } from '@/hooks/useCurrency';
+import { calculateLegalBilling } from '@/lib/utils/legal-billing';
+import { useProducts } from '@/hooks/use-products';
+import { useBillingSettings } from '@/hooks/use-billing-settings';
+import { useDefaultAlcoholTaxRate } from '@/hooks/use-billing-settings';
 
 interface TableCardProps {
   table: Table;
@@ -31,9 +35,31 @@ export function TableCard({
   onAmendOrder
 }: TableCardProps) {
   const { format } = useCurrency();
+  const { data: allProducts } = useProducts();
+  const { data: billingSettings } = useBillingSettings();
+  const { data: defaultAlcoholTaxRate = 18 } = useDefaultAlcoholTaxRate();
+
   const [showQuickActions, setShowQuickActions] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  // Calculate the total payable amount (same as PaymentDrawer)
+  const payableAmount = useMemo(() => {
+    if (!table.orders?.[0]) {
+      return 0;
+    }
+
+    const order = table.orders[0];
+
+    // If the order already has all the calculated fields, use them
+    if (order.subtotal && order.taxAmount !== undefined && order.serviceChargeAmount !== undefined && order.discountAmount !== undefined) {
+      const calculatedTotal = (order.subtotal || 0) + (order.taxAmount || 0) + (order.serviceChargeAmount || 0) - (order.discountAmount || 0);
+      return calculatedTotal;
+    }
+
+    // Fallback to the stored totalAmount if calculation isn't possible
+    return order.totalAmount || 0;
+  }, [table.orders, allProducts, billingSettings, defaultAlcoholTaxRate]);
 
   useEffect(() => {
     if (!showQuickActions) return;
@@ -233,24 +259,12 @@ export function TableCard({
             >
               <CreditCard className="w-3 h-3" />
               <span>
-                {format(table.orders[0].totalAmount || 0)}
+                {payableAmount > 0 ? format(payableAmount) : 'Pay Bill'}
               </span>
               {table.orders[0].paymentStatus === 'paid' && (
                 <span className="ml-1 text-xs">✓</span>
               )}
             </button>
-            
-            {/* Amend Button - Show for unpaid orders regardless of completion status */}
-            {table.orders[0].paymentStatus !== 'paid' && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onAmendOrder?.(table.orders![0]); }}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100"
-                title="Amend order"
-              >
-                <PlusCircle className="w-3 h-3" /> Amend
-              </button>
-            )}
           </div>
         )}
 
@@ -306,7 +320,7 @@ export function TableCard({
                 onTouchStart={(e) => e.stopPropagation()}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-yellow-50 flex items-center gap-2"
               >
-                <Calendar className="w-4 h-4 text-yellow-600" />
+                <Calendar className="w-4 h-4 text-yellow-600" /> 
                 Mark Reserved
               </button>
             )}

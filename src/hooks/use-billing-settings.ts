@@ -118,6 +118,29 @@ export const useDefaultTaxRate = () => {
   });
 };
 
+// Get default alcohol tax rate (VAT/Excise)
+export const useDefaultAlcoholTaxRate = () => {
+  return useQuery({
+    queryKey: ["billing-settings", "default_alcohol_tax_rate"],
+    queryFn: async (): Promise<number> => {
+      const response = await fetch(`${API_BASE}?key=default_alcohol_tax_rate`);
+      if (!response.ok) {
+        return 18; // Default 18% VAT for alcohol
+      }
+      const settings = await response.json();
+      let value = settings.length > 0 ? parseFloat(settings[0].value) : 18;
+      // If value is <= 1, assume it's a fraction and convert to percentage
+      if (value <= 1) value = value * 100;
+      return value;
+    },
+    staleTime: 8000,
+    refetchInterval: 8000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+};
+
 // Whether product-level tax can be configured on products
 export const useProductLevelTaxEnabled = () => {
   return useQuery({

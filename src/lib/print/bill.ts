@@ -113,158 +113,285 @@ const formatDateTime = (date: Date, fmt?: string): string => {
   return fmt.replace(/YYYY|MM|DD|HH|mm|ss/g, (t) => tokens[t]);
 };
 
-export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions = {}): string {
-  const paper: PaperSize = opts.paper || '58';
-  const widthPx = paper === '80' ? 560 : 384; // approximate printable width
+// Convert legacy BillOrderData into FoodBillData for the new template
+function buildFoodBillData(order: BillOrderData): FoodBillData {
+  const business = (order as any).business || { name: "Your Business" } as any;
 
-  const business = order.business || { name: 'Your Business' };
-  const service = order.serviceChargeAmount || 0;
-  const discount = order.discountAmount || 0;
+  const joinDefined = (parts: (string | undefined)[]) => parts.filter(Boolean).join(", ");
+  const address = joinDefined([
+    business.addressLine1,
+    business.addressLine2,
+    joinDefined([business.city, business.pincode])
+  ]);
+
+  const items = (order.items || []).map(it => ({
+    name: it.name,
+    price: it.unitPrice,
+    quantity: it.quantity,
+    amount: it.totalPrice,
+  }));
+
   const subtotal = order.subtotal || 0;
-  const taxAmount = order.taxAmount || 0;
-  // Calculate total following accounting standards: (subtotal - discount) + service + tax
-  const subtotalAfterDiscount = Math.max(0, subtotal - discount);
-  const total = order.totalAmount || (subtotalAfterDiscount + service + taxAmount);
+  const discount = order.discountAmount || 0;
+  const serviceCharge = order.serviceChargeAmount || 0;
+  const grandTotal = order.totalAmount || Math.max(0, subtotal - discount) + serviceCharge + (order.taxAmount || 0);
 
-  // IGST not used in current HTML template; retain schema via order.tax if needed later
+  const gstBreakdown = Array.isArray(order.tax?.lines)
+    ? order.tax!.lines!.map(l => ({ rate: 0, base: 0, tax: l.amount }))
+    : [];
 
-  const headerAddress = [business.addressLine1, business.addressLine2, [business.city, business.pincode].filter(Boolean).join(' ')].filter(Boolean).join('<br/>');
-  const contact = [business.phone, business.email, business.website].filter(Boolean).join(' • ');
-
-  const now = new Date();
-  const dt = formatDateTime(now, opts.dateTimeFormat);
-
-  const linesHTML = order.items.map((it) => `
-      <div class="row">
-        <div class="col name">${it.name}${it.hsn ? ` <span class="muted">(HSN ${it.hsn})</span>` : ''}</div>
-        <div class="col qty">x${it.quantity}</div>
-        <div class="col rate">${inrPlain(it.unitPrice)}</div>
-        <div class="col amount">${inr(it.totalPrice)}</div>
-      </div>
-      ${it.notes ? `<div class="notes">${it.notes}</div>` : ''}
-  `).join('');
-
-  // Build tax lines: use the tax lines from the order or show the total tax amount
-  let gstHTML = '';
-  const taxLines = order.tax?.lines || [];
-  
-  if (Array.isArray(taxLines) && taxLines.length > 0) {
-    gstHTML = taxLines.map(l => `<div class="row"><div class="col label">${l.name}</div><div class="col amount">${inr(l.amount || 0)}</div></div>`).join('\n');
-  } else if (taxAmount > 0) {
-    // Show the total tax amount that reflects item-specific tax rates
-    gstHTML = `<div class="row"><div class="col label">GST @ 5% (CGST@2.5% + SGST@2.5%)</div><div class="col amount">${inr(taxAmount)}</div></div>`;
-  }
-
-  const payHTML = order.extras?.showPaymentDetails ? `
-    <div class="section">
-      <div class="row"><div class="col label">Payment Method</div><div class="col amount">${order.extras?.paymentMethod || '-'}</div></div>
-      ${order.extras?.paymentReference ? `<div class="row"><div class="col label">Reference</div><div class="col amount">${order.extras?.paymentReference}</div></div>` : ''}
-      ${order.extras?.paymentMethod === 'cash' && typeof order.extras?.cashReceived === 'number' ? `<div class="row"><div class="col label">Cash Tendered</div><div class="col amount">${inr(order.extras.cashReceived || 0)}</div></div>` : ''}
-      ${order.extras?.paymentMethod === 'cash' && typeof order.extras?.changeDue === 'number' ? `<div class="row"><div class="col label">Change Due</div><div class="col amount">${inr(order.extras.changeDue || 0)}</div></div>` : ''}
-      ${order.extras?.paymentMethod !== 'cash' && typeof order.extras?.changeDue === 'number' ? `<div class="row"><div class="col label">Change Due</div><div class="col amount">${inr(order.extras.changeDue || 0)}</div></div>` : ''}
-      ${typeof order.extras?.balanceDue === 'number' ? `<div class="row"><div class="col label">Balance</div><div class="col amount">${inr(order.extras.balanceDue || 0)}</div></div>` : ''}
-    </div>
-  ` : '';
-
-  const brandingHTML = `
-    ${business.logoDataUrl ? `<div class="logo"><img src="${business.logoDataUrl}" alt="logo"/></div>` : ''}
-    <div class="title">${business.name}</div>
-    ${headerAddress ? `<div class="muted center">${headerAddress}</div>` : ''}
-    ${contact ? `<div class="muted center">${contact}</div>` : ''}
-    ${business.gstin ? `<div class="muted center">GSTIN: ${business.gstin}</div>` : ''}
-    ${business.fssai ? `<div class="muted center">FSSAI: ${business.fssai}</div>` : ''}
-  `;
-
-  const qrHTML = order.extras?.qrDataUrl ? `<div class="qr"><img src="${order.extras.qrDataUrl}"/></div>` : '';
-
-  return `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji'; margin: 0; padding: 0; }
-    .receipt { width: ${widthPx}px; margin: 0 auto; padding: 12px; }
-    .center { text-align: center; }
-    .title { font-weight: 700; font-size: 18px; text-align: center; }
-    .muted { color: #6b7280; font-size: 14px; }
-    .logo img { display: block; margin: 0 auto 6px; max-height: 56px; }
-    .section { border-top: 1px dashed #e5e7eb; margin-top: 8px; padding-top: 8px; }
-    .row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px; align-items: baseline; font-size: 14px; }
-    .row .name { grid-column: 1 / span 1; }
-    .row .qty { width: 28px; text-align: right; }
-    .row .rate { width: 60px; text-align: right; }
-    .row .amount { width: 88px; text-align: right; font-variant-numeric: tabular-nums; }
-    .row .label { grid-column: 1 / span 3; color: #374151; }
-    .notes { margin: 2px 0 4px 0; color: #6b7280; font-size: 13px; padding-left: 8px; }
-    .kv { display: flex; justify-content: space-between; font-size: 14px; }
-    .total { font-weight: 700; font-size: 16px; }
-    .badge { display:inline-block; padding:2px 6px; border-radius: 6px; font-weight:600; font-size:14px; }
-    .paid { background:#d1fae5; color:#065f46; }
-    .unpaid { background:#fee2e2; color:#991b1b; }
-    .qr img { display:block; margin: 8px auto; width: 140px; height: 140px; }
-    .footer { text-align:center; font-size:14px; color:#6b7280; margin-top: 8px; }
-  </style>
-  <title>Receipt</title>
-  </head>
-  <body>
-    <div class="receipt">
-      ${brandingHTML}
-
-      <div class="section">
-        <div class="kv"><span>Date/Time</span><span>${dt}</span></div>
-        <div class="kv"><span>Order #</span><span>${order.orderNumber || order.id}</span></div>
-        <div class="kv"><span>Order Type</span><span>${order.orderType}</span></div>
-        ${order.tableNumber ? `<div class="kv"><span>Table</span><span>${order.tableNumber}</span></div>` : ''}
-        ${order.customerName ? `<div class="kv"><span>Customer</span><span>${order.customerName}</span></div>` : ''}
-        ${order.customerPhone ? `<div class="kv"><span>Phone</span><span>${order.customerPhone}</span></div>` : ''}
-      </div>
-
-      <div class="section">
-        <div class="row" style="font-weight:600;">
-          <div class="col name">Item</div>
-          <div class="col qty">Qty</div>
-          <div class="col rate">Rate</div>
-          <div class="col amount">Amount</div>
-        </div>
-        ${linesHTML}
-      </div>
-
-      <div class="section">
-        <div class="row"><div class="col label">Subtotal</div><div class="col amount">${inr(subtotal)}</div></div>
-        ${discount > 0 ? `<div class="row"><div class="col label">Discount</div><div class="col amount">-${inr(discount)}</div></div>` : ''}
-        ${service > 0 ? `<div class="row"><div class="col label">Service Charge</div><div class="col amount">${inr(service)}</div></div>` : ''}
-        ${gstHTML}
-        <div class="row total"><div class="col label">TOTAL</div><div class="col amount">${inr(total)}</div></div>
-        <div class="center" style="margin-top:4px;">${order.isPaid ? `<span class="badge paid">PAID</span>` : `<span class="badge unpaid">UNPAID</span>`}</div>
-      </div>
-
-      ${payHTML}
-      ${qrHTML}
-
-      <div class="section">
-        <div class="muted">Amount in words:</div>
-        <div>${amountInWords(total)}</div>
-      </div>
-
-      <div class="footer">
-        ${order.footer?.thankYouText || 'Thank you for your order!'}<br/>
-        ${order.footer?.policyText ? `${order.footer.policyText}<br/>` : ''}
-        ${order.footer?.customNote || ''}
-        ${order.taxAmount > 0 ? '<br/>* Tax calculated using item-specific rates' : ''}
-      </div>
-      <div class="footer">THIS STORE IS POWERED BY HORDER POS SYS</div>
-    </div>
-  </body>
-</html>`;
+  return {
+    restaurantName: business.name,
+    address,
+    phone: business.phone || "",
+    email: business.email || "",
+    website: business.website || "",
+    fssai: business.fssai || "",
+    gstin: business.gstin || "",
+    orderType: order.orderType,
+    customerName: order.customerName || "Walk-in Customer",
+    customerPhone: order.customerPhone || "",
+    tableNumber: order.tableNumber,
+    waiterName: undefined,
+    orderNumber: order.orderNumber || order.id,
+    kotNumbers: (order as any).kotNumber ? [String((order as any).kotNumber)] : [],
+    items,
+    subtotal,
+    discount,
+    discountMode: "amount",
+    serviceCharge,
+    serviceChargeRate: 0,
+    grandTotal,
+    gstBreakdown,
+    totalPayable: grandTotal,
+    totalItems: items.reduce((s, it) => s + it.quantity, 0),
+  };
 }
 
-// Client-side helper to print a bill consistently across pages
-// Deprecated: print functionality removed for now. Keep a stub to avoid import breaks if any.
-export async function printBillFromOrder(_order: any, _isPaid: boolean, _paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }): Promise<void> {
-  console.log('Print disabled: bill printing is temporarily removed.');
+export function generateBillHTML(order: BillOrderData, opts: GenerateBillOptions = {}): string {
+  // Bridge old signature to the new legally-compliant food bill template.
+  // For now we assume the order contains only food items (non-alcohol). If liquor items need a
+  // separate template we will extend this later.
+  //
+  // NOTE: We purposely keep the function name the same so existing imports don’t break while we
+  // progressively migrate call-sites to the dedicated helpers in food-bill.ts / liquor-bill.ts.
+
+  // ---- 1. Build FoodBillData -----------------------------
+  const data = buildFoodBillData(order);
+  return generateFoodBillHTML(data);
+}
+
+// Utility to convert the older BillOrderData structure → FoodBillData expected by the new template
+import { generateFoodBillHTML, FoodBillData } from "./food-bill";
+import { generateLiquorBillHTML, LiquorBillData } from "./liquor-bill";
+import { generateFoodBillFromOrder } from "./food-bill";
+import { generateLiquorBillFromOrder } from "./liquor-bill";
+import { calculateLegalBilling, BillingConfig } from "../utils/legal-billing";
+
+/** Detect liquor items in the plain order object (as returned from DB) */
+function splitOrderItems(order: any) {
+  const items: any[] = Array.isArray(order.orderItems) ? order.orderItems : [];
+  const food: any[] = [];
+  const liquor: any[] = [];
+  for (const it of items) {
+    const isAlcohol = Boolean(
+      (it as any)?.product?.isAlcohol ??
+      (it as any)?.products?.isAlcohol ??
+      (it as any)?.isAlcohol
+    );
+    (isAlcohol ? liquor : food).push(it);
+  }
+  return { food, liquor };
+}
+
+function toCartItems(items: any[]) {
+  return items.map((it) => ({
+    key: String(it.id ?? `${it.productId}-${it.quantity}-${it.unitPrice}`),
+    productId: it.productId,
+    productName: it.productName,
+    quantity: Number(it.quantity) || 0,
+    basePrice: Number(it.unitPrice) || 0,
+    totalPrice: (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0),
+    addons: [],
+    variant: undefined,
+    customizationNotes: it.customizationNotes || "",
+  }));
+}
+
+function toProductsFromItems(items: any[]) {
+  const map = new Map<string, { id: string; isAlcohol?: boolean }>();
+  for (const it of items) {
+    const id = String(it.productId);
+    if (!map.has(id)) {
+      const isAlcohol = Boolean(
+        (it as any)?.product?.isAlcohol ??
+        (it as any)?.products?.isAlcohol ??
+        (it as any)?.isAlcohol
+      );
+      map.set(id, { id, isAlcohol });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function buildLiquorBillData(order: any, liquorItems: any[]): LiquorBillData {
+  const business = order.business || { name: "Your Business" } as any;
+  const joinDefined = (parts: (string | undefined)[]) => parts.filter(Boolean).join(", ");
+  const address = joinDefined([
+    business.addressLine1,
+    business.addressLine2,
+    joinDefined([business.city, business.pincode])
+  ]);
+
+  const subtotal = liquorItems.reduce((s, it) => s + (Number(it.totalPrice) || 0), 0);
+  const discount = 0; // unknown here
+  const serviceCharge = 0;
+  const vatRate = order.vatRate ?? 18; // default 18 when not provided
+  const vatTax = subtotal * (vatRate / 100);
+  const grandTotal = subtotal + vatTax + serviceCharge - discount;
+
+  return {
+    restaurantName: business.name,
+    address,
+    phone: business.phone || "",
+    email: business.email || "",
+    website: business.website || "",
+    fssai: business.fssai || "",
+    gstin: business.gstin || "",
+    orderType: order.orderType,
+    customerName: order.customerName || "Walk-in Customer",
+    customerPhone: order.customerPhone || "",
+    tableNumber: order.tableNumber,
+    waiterName: undefined,
+    orderNumber: order.orderNumber || order.id,
+    kotNumbers: order.kotNumber ? [String(order.kotNumber)] : [],
+    items: liquorItems.map(it => ({
+      name: it.productName,
+      price: it.unitPrice,
+      quantity: it.quantity,
+      amount: it.totalPrice,
+    })),
+    subtotal,
+    discount,
+    discountMode: "amount",
+    serviceCharge,
+    serviceChargeRate: 0,
+    grandTotal,
+    vatBreakdown: [{ rate: vatRate, base: subtotal, tax: vatTax }],
+    totalPayable: grandTotal,
+    totalItems: liquorItems.reduce((s, it) => s + (Number(it.quantity) || 0), 0),
+  };
+}
+
+// ------------------- SPLIT PRINT ----------------------
+
+export async function printSplitBill(order: any, isPaid: boolean, paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }) {
+  try {
+    const items: any[] = Array.isArray(order.orderItems) ? order.orderItems : [];
+    const { food, liquor } = splitOrderItems(order);
+
+    // Build data for legal billing calculation (ensures correct group totals)
+    const cartItems = toCartItems(items);
+    const products = toProductsFromItems(items) as any[];
+
+    const subtotalAll = items.reduce((s, it) => s + (Number(it.unitPrice) || 0) * (Number(it.quantity) || 0), 0);
+    const discountAmount = Number(order.discountAmount || 0);
+    const serviceChargeAmount = Number(order.serviceChargeAmount || 0);
+    const serviceChargeRate = subtotalAll > 0 ? (serviceChargeAmount / Math.max(1, subtotalAll - discountAmount)) * 100 : 0;
+
+    const billingConfig: BillingConfig = {
+      defaultTaxRate: 5,
+      defaultAlcoholTaxRate: 18,
+      defaultServiceChargeRate: 5,
+      serviceChargeEnabled: serviceChargeRate > 0,
+      serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : 0,
+    } as any;
+
+    const legalBilling = calculateLegalBilling(
+      cartItems,
+      // Provide minimal products with isAlcohol flags derived from items
+      (products as any),
+      // Use amount mode and proportional allocation of discount
+      discountAmount > 0 ? String(discountAmount) : "",
+      "amount",
+      discountAmount > 0,
+      billingConfig
+    );
+
+    const prints: string[] = [];
+
+    if (food.length > 0) {
+      // Build a food-only legalBilling view by zeroing out alcohol parts
+      const foodOnly = {
+        ...legalBilling,
+        alcoholItems: [],
+        alcoholSubtotal: 0,
+        alcoholDiscount: 0,
+        alcoholServiceCharge: 0,
+        alcoholGrandBeforeTax: 0,
+        alcoholVAT: 0,
+        alcoholTotal: 0,
+        totalPayable: legalBilling.foodTotal,
+      } as typeof legalBilling;
+      const foodHtml = generateFoodBillFromOrder(order, foodOnly);
+      console.log("PRINT DEBUG - Food Bill HTML:\n", foodHtml);
+      prints.push(foodHtml);
+    }
+    if (liquor.length > 0) {
+      // Build a liquor-only legalBilling view by zeroing out food parts
+      const liquorOnly = {
+        ...legalBilling,
+        foodItems: [],
+        foodSubtotal: 0,
+        foodDiscount: 0,
+        foodServiceCharge: 0,
+        foodGrandBeforeTax: 0,
+        foodSGST: 0,
+        foodCGST: 0,
+        foodTotal: 0,
+        totalPayable: legalBilling.alcoholTotal,
+      } as typeof legalBilling;
+      const liquorHtml = generateLiquorBillFromOrder(order, liquorOnly);
+      console.log("PRINT DEBUG - Liquor Bill HTML:\n", liquorHtml);
+      prints.push(liquorHtml);
+    }
+
+    // If debug flag set, skip printing to window and only log HTML
+    const debugFlag = (() => {
+      try { return typeof window !== 'undefined' && localStorage.getItem('debug.print') === 'true'; } catch { return false; }
+    })();
+
+    if (debugFlag) return;
+
+    for (const html of prints) {
+      const w = window.open('', '_blank');
+      if (!w) throw new Error('Unable to open print window');
+      w.document.write(html);
+      w.document.close();
+      await new Promise(res => {
+        w.onload = () => {
+          w.print();
+          w.close();
+          res(null);
+        };
+        setTimeout(() => {
+          if (!w.closed) {
+            w.print();
+            w.close();
+          }
+          res(null);
+        }, 800);
+      });
+    }
+  } catch (err) {
+    console.error('Split bill print failed', err);
+  }
+}
+
+// Modify existing printBillFromOrder to delegate
+export async function printBillFromOrder(order: any, isPaid: boolean, paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }): Promise<void> {
+  // Use new split logic
+  return printSplitBill(order, isPaid, paymentDetails);
 }
 
 

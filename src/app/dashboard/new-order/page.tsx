@@ -19,6 +19,10 @@ import PaymentDrawer from "@/components/ui/PaymentDrawer";
 import OrderConfirmationMessage from "@/components/ui/OrderConfirmationMessage";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useAnalytics } from "@/hooks/use-analytics";
+import ItemOptionsModal from "@/components/orders/ItemOptionsModal";
+import { CartItem, CartAddon, CartVariant } from "@/types/cart";
+import { addToCart, updateCartItemQuantity, removeCartItem, calculateCartTotals } from "@/lib/utils/cart";
+import { printBillFromOrder } from "@/lib/print/bill";
 
 // Type declaration for electron
 declare global {
@@ -34,21 +38,7 @@ declare global {
 
 type MenuItem = any;
 
-interface ExtraSelection {
-  id: string;
-  name: string;
-  price: number;
-}
-
-interface OrderItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  total: number;
-  customizationNotes?: string;
-  extras?: ExtraSelection[];
-}
+// Remove the old interfaces as we're using the new cart types
 
 interface DisplayCategory {
   id: string;
@@ -64,12 +54,16 @@ export default function NewOrderPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerId, setCustomerId] = useState<string | undefined>();
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [orderItems, setOrderItems] = useState<CartItem[]>([]);
   const [showTableModal, setShowTableModal] = useState(false);
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [customizationNotes, setCustomizationNotes] = useState("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  
+  // Combined Options Modal State
+  const [showItemOptionsModal, setShowItemOptionsModal] = useState(false);
+  const [selectedProductForModal, setSelectedProductForModal] = useState<MenuItem | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
@@ -86,6 +80,7 @@ export default function NewOrderPage() {
   const customerNameRef = useRef<HTMLInputElement>(null);
   const customerPhoneRef = useRef<HTMLInputElement>(null);
   const phoneSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSettingCustomerProgrammatically = useRef<boolean>(false);
 
   // Router for navigation
   const router = useRouter();
@@ -138,7 +133,7 @@ export default function NewOrderPage() {
 
   // Customer search and creation
   const { data: customerSearchResults = [] } = useSearchCustomers(customerName);
-  const { data: existingCustomer } = useCustomerByPhone(customerPhone);
+  const { data: existingCustomer, isFetching: isFetchingCustomer = false } = useCustomerByPhone(customerPhone);
   const createCustomer = useCreateCustomer();
   const createOrderOptimistic = useCreateOrderOptimistic();
   const updateOrder = useUpdateOrder();
@@ -147,19 +142,22 @@ export default function NewOrderPage() {
   const handleCustomerNameChange = async (name: string) => {
     setCustomerName(name);
     
-    if (name.length >= 2) {
-      // Show suggestions for existing customers
-      const suggestions = await searchCustomersByName(name);
-      setCustomerSuggestions(suggestions);
-      setShowCustomerSuggestions(true);
-    } else {
-      setShowCustomerSuggestions(false);
-      setCustomerSuggestions([]);
-    }
-    
-    // Clear customer ID if name is changed manually
-    if (customerId) {
-      setCustomerId(undefined);
+    // Only search and clear customer ID if this is manual user input, not programmatic
+    if (!isSettingCustomerProgrammatically.current) {
+      if (name.length >= 2) {
+        // Show suggestions for existing customers
+        const suggestions = await searchCustomersByName(name);
+        setCustomerSuggestions(suggestions);
+        setShowCustomerSuggestions(true);
+      } else {
+        setShowCustomerSuggestions(false);
+        setCustomerSuggestions([]);
+      }
+      
+      // Clear customer ID if name is changed manually
+      if (customerId) {
+        setCustomerId(undefined);
+      }
     }
   };
 
@@ -167,28 +165,31 @@ export default function NewOrderPage() {
   const handleCustomerPhoneChange = async (phone: string) => {
     setCustomerPhone(phone);
     
-    // Clear customer ID when phone is changed manually
-    if (customerId) {
-      setCustomerId(undefined);
-    }
-    
-    // Clear suggestions immediately when typing
-    setShowCustomerSuggestions(false);
-    setCustomerSuggestions([]);
-    
-    // Clear any existing timeout
-    if (phoneSearchTimeoutRef.current) {
-      clearTimeout(phoneSearchTimeoutRef.current);
-    }
-    
-    // Only search if phone number is at least 3 digits and add a small delay
-    if (phone.length >= 3) {
-      // Add a small delay to prevent rapid searches while typing
-      phoneSearchTimeoutRef.current = setTimeout(async () => {
-        const suggestions = await searchCustomersByPhone(phone);
-        setCustomerSuggestions(suggestions);
-        setShowCustomerSuggestions(true);
-      }, 500); // 500ms delay
+    // Only clear customer ID and search if this is manual user input, not programmatic
+    if (!isSettingCustomerProgrammatically.current) {
+      // Clear customer ID when phone is changed manually
+      if (customerId) {
+        setCustomerId(undefined);
+      }
+      
+      // Clear suggestions immediately when typing
+      setShowCustomerSuggestions(false);
+      setCustomerSuggestions([]);
+      
+      // Clear any existing timeout
+      if (phoneSearchTimeoutRef.current) {
+        clearTimeout(phoneSearchTimeoutRef.current);
+      }
+      
+      // Only search if phone number is at least 3 digits and add a small delay
+      if (phone.length >= 3) {
+        // Add a small delay to prevent rapid searches while typing
+        phoneSearchTimeoutRef.current = setTimeout(async () => {
+          const suggestions = await searchCustomersByPhone(phone);
+          setCustomerSuggestions(suggestions);
+          setShowCustomerSuggestions(true);
+        }, 500); // 500ms delay
+      }
     }
   };
 
@@ -332,11 +333,19 @@ export default function NewOrderPage() {
 
   // Select customer from suggestions
   const selectCustomerFromSuggestions = (customer: Customer) => {
+    // Set flag to indicate we're programmatically setting customer data
+    isSettingCustomerProgrammatically.current = true;
+    
     setCustomerName(customer.name);
     setCustomerPhone(customer.phone || "");
     setCustomerId(customer.id);
     setShowCustomerSuggestions(false);
     setCustomerSuggestions([]);
+    
+    // Reset the flag after a brief delay to allow state updates to complete
+    setTimeout(() => {
+      isSettingCustomerProgrammatically.current = false;
+    }, 100);
     
     // Show a brief success message
     const successMsg = document.createElement('div');
@@ -382,30 +391,20 @@ export default function NewOrderPage() {
     return undefined;
   };
 
-  const addToOrder = (item: MenuItem, notes?: string) => {
-    const existingItem = orderItems.find((orderItem: OrderItem) => orderItem.id === item.id);
-    
-    if (existingItem) {
-      setOrderItems((prev: OrderItem[]) => prev.map((orderItem: OrderItem) =>
-        orderItem.id === item.id
-          ? { 
-              ...orderItem, 
-              quantity: orderItem.quantity + 1, 
-              total: (orderItem.quantity + 1) * item.price + (orderItem.extras?.reduce((s, e) => s + e.price, 0) || 0) * (orderItem.quantity + 1),
-              customizationNotes: notes || orderItem.customizationNotes
-            }
-          : orderItem
-      ));
+  const handleItemClick = (item: MenuItem) => {
+    const hasAddons = item.extras && item.extras.length > 0;
+    const hasVariants = item.variants && item.variants.length > 0;
+    if (hasAddons || hasVariants) {
+      setSelectedProductForModal(item);
+      setShowItemOptionsModal(true);
     } else {
-      setOrderItems((prev: OrderItem[]) => [...prev, {
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: 1,
-        total: item.price,
-        customizationNotes: notes
-      }]);
+      addToOrder(item);
     }
+  };
+
+  const addToOrder = (item: MenuItem, addons: CartAddon[] = [], variant?: CartVariant, notes?: string) => {
+    const newCart = addToCart(orderItems, item, addons, variant, 1, notes);
+    setOrderItems(newCart);
     
     // Show a brief success message
     const successMsg = document.createElement('div');
@@ -414,16 +413,19 @@ export default function NewOrderPage() {
     document.body.appendChild(successMsg);
     
     setTimeout(() => {
-      document.body.removeChild(successMsg);
+      if (document.body.contains(successMsg)) {
+        document.body.removeChild(successMsg);
+      }
     }, 2000);
   };
 
-  const updateItemCustomizationNotes = (itemId: string, notes: string) => {
-    setOrderItems((prev: OrderItem[]) => prev.map((orderItem: OrderItem) =>
-      orderItem.id === itemId
-        ? { ...orderItem, customizationNotes: notes }
-        : orderItem
-    ));
+  const updateItemCustomizationNotes = (itemKey: string, notes: string) => {
+    const newCart = orderItems.map((item: CartItem) =>
+      item.key === itemKey
+        ? { ...item, customizationNotes: notes }
+        : item
+    );
+    setOrderItems(newCart);
     
     // Show a brief success message
     const successMsg = document.createElement('div');
@@ -432,7 +434,9 @@ export default function NewOrderPage() {
     document.body.appendChild(successMsg);
     
     setTimeout(() => {
-      document.body.removeChild(successMsg);
+      if (document.body.contains(successMsg)) {
+        document.body.removeChild(successMsg);
+      }
     }, 2000);
   };
 
@@ -457,72 +461,49 @@ export default function NewOrderPage() {
       setCustomerId(existingCustomer.id);
       // Show a subtle indicator that customer exists
       console.log('Existing customer found:', existingCustomer.name);
-    } else {
+    } else if (!isFetchingCustomer) {
+      // Only clear the customer ID if we're not fetching a new one.
+      // This prevents clearing the ID when the phone number changes and a new customer is being fetched.
       setCustomerId(undefined);
     }
-  }, [existingCustomer]);
+  }, [existingCustomer, isFetchingCustomer]);
 
-  const handleItemClick = (item: MenuItem) => {
-    addToOrder(item);
-  };
+// Remove duplicate handleItemClick function
 
   const findMenuItemById = (id: string): MenuItem | undefined => {
     return products.find((item: MenuItem) => item.id === id);
   };
 
-  const updateQuantity = (itemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      setOrderItems((prev: OrderItem[]) => prev.filter((item: OrderItem) => item.id !== itemId));
-    } else {
-      setOrderItems((prev: OrderItem[]) => prev.map((item: OrderItem) =>
-        item.id === itemId
-          ? { ...item, quantity: newQuantity, total: newQuantity * item.price + (item.extras?.reduce((s, e) => s + e.price, 0) || 0) * newQuantity }
-          : item
-      ));
-    }
+  const updateQuantity = (itemKey: string, newQuantity: number) => {
+    const newCart = updateCartItemQuantity(orderItems, itemKey, newQuantity);
+    setOrderItems(newCart);
   };
 
-  const removeItem = (itemId: string) => {
-    setOrderItems((prev: OrderItem[]) => prev.filter((item: OrderItem) => item.id !== itemId));
+  const removeItem = (itemKey: string) => {
+    const newCart = removeCartItem(orderItems, itemKey);
+    setOrderItems(newCart);
   };
 
   const getSubtotal = (): number => {
-    return orderItems.reduce((sum: number, item: OrderItem) => sum + item.total, 0);
+    return orderItems.reduce((sum: number, item: CartItem) => sum + item.totalPrice, 0);
   };
-  // Toggle extra for a specific order item
-  const toggleExtraForItem = (itemId: string, extra: { id: string; name: string; price: number }) => {
-    setOrderItems((prev: OrderItem[]) => prev.map((item) => {
-      if (item.id !== itemId) return item;
-      const has = item.extras?.some((e) => e.id === extra.id);
-      const newExtras = has
-        ? (item.extras || []).filter((e) => e.id !== extra.id)
-        : [ ...(item.extras || []), { id: extra.id, name: extra.name, price: extra.price } ];
-      const extrasTotal = newExtras.reduce((s, e) => s + e.price, 0) * (item.quantity || 1);
-      return {
-        ...item,
-        extras: newExtras,
-        total: item.quantity * item.price + extrasTotal,
-      };
-    }));
-  };
-
 
   const getTax = (): number => {
     // Use product-specific tax rates if available, otherwise use default
-    const totalTax = orderItems.reduce((sum: number, item: OrderItem) => {
-      const product = products.find(p => p.id === item.id);
+    const totalTax = orderItems.reduce((sum: number, item: CartItem) => {
+      const product = products.find(p => p.id === item.productId);
       const taxRate = product?.taxRate || 0;
-      return sum + (item.total * (taxRate / 100));
+      return sum + (item.totalPrice * (taxRate / 100));
     }, 0);
     return totalTax;
   };
 
   const getServiceCharge = (): number => {
     // Use product-specific service charge rates if available, otherwise use default
-    const totalServiceCharge = orderItems.reduce((sum: number, item: OrderItem) => {
-      const product = products.find(p => p.id === item.id);
+    const totalServiceCharge = orderItems.reduce((sum: number, item: CartItem) => {
+      const product = products.find(p => p.id === item.productId);
       const serviceChargeRate = product?.serviceChargeRate || 0;
-      return sum + (item.total * (serviceChargeRate / 100));
+      return sum + (item.totalPrice * (serviceChargeRate / 100));
     }, 0);
     return totalServiceCharge;
   };
@@ -594,15 +575,16 @@ export default function NewOrderPage() {
         totalAmount: getTotal(),
         paymentStatus: "pending",
         notes: amendmentMode ? "Order amended with additional items" : "",
-        orderItems: orderItems.map((item: any) => ({
-          productId: item.id,
-          productName: item.name,
+        orderItems: orderItems.map((item: CartItem) => ({
+          productId: item.productId,
+          productName: item.productName,
           quantity: item.quantity,
-          unitPrice: item.price,
-          totalPrice: item.total,
+          unitPrice: item.basePrice,
+          totalPrice: item.totalPrice,
           customizationNotes: [
             item.customizationNotes?.trim() || '',
-            ...(item.extras && item.extras.length > 0 ? [`Extras: ${item.extras.map((e: any) => `${e.name} (+${format(Number(e.price))})`).join(', ')}`] : [])
+            ...(item.addons && item.addons.length > 0 ? [`Add-ons: ${item.addons.map((e) => `${e.name}`).join(', ')}`] : []),
+            ...(item.variant ? [`Variant: ${item.variant.name}`] : [])
           ].filter(Boolean).join(' | '),
         })),
       };
@@ -616,15 +598,16 @@ export default function NewOrderPage() {
           
           // Update the existing order with amended items
           const amendedOrderData = {
-            orderItems: orderItems.map(item => ({
-              productId: item.id,
-              productName: item.name,
+            orderItems: orderItems.map((item: CartItem) => ({
+              productId: item.productId,
+              productName: item.productName,
               quantity: item.quantity,
-              unitPrice: item.price,
-              totalPrice: item.total,
+              unitPrice: item.basePrice,
+              totalPrice: item.totalPrice,
               customizationNotes: [
                 item.customizationNotes?.trim() || '',
-                ...(item.extras && item.extras.length > 0 ? [`Extras: ${item.extras.map((e: any) => `${e.name} (+${format(Number(e.price))})`).join(', ')}`] : [])
+                ...(item.addons && item.addons.length > 0 ? [`Add-ons: ${item.addons.map((e) => `${e.name}`).join(', ')}`] : []),
+                ...(item.variant ? [`Variant: ${item.variant.name}`] : [])
               ].filter(Boolean).join(' | ')
             })),
             subtotal: getSubtotal(),
@@ -823,33 +806,7 @@ export default function NewOrderPage() {
         }
       })();
 
-      const html = generateBillHTML({
-        id: order.id,
-        orderNumber: order.orderNumber || order.id,
-        orderType: order.orderType,
-        tableNumber: order.tableNumber,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        subtotal: order.subtotal,
-        taxAmount: order.taxAmount,
-        serviceChargeAmount: order.serviceChargeAmount,
-        discountAmount: order.discountAmount,
-        totalAmount: order.totalAmount,
-        isPaid,
-        items: (order.orderItems || []).map((it: any) => ({ name: it.productName, quantity: it.quantity, unitPrice: it.unitPrice, totalPrice: it.totalPrice, notes: it.customizationNotes })),
-        business: billSettings.business,
-        tax: { showSplitGST: !!billSettings?.tax?.showSplitGST, lines: taxLines },
-        extras: { 
-          showPaymentDetails: billSettings?.extras?.showPaymentDetails !== false,
-          paymentMethod: paymentDetails?.method,
-          cashReceived: paymentDetails?.cashReceived,
-          changeDue: paymentDetails?.changeDue
-        },
-        footer: billSettings.footer,
-      }, { paper: billSettings.paper === '80' ? '80' : '58', dateTimeFormat: billSettings.dateTimeFormat });
-
-      // Printing disabled intentionally; preview remains available via HTML string above
-      console.log("Print disabled: bill printing is temporarily removed.");
+      await printBillFromOrder(order, isPaid, paymentDetails);
     } catch (error) {
       console.error("Failed to print Bill:", error);
     }
@@ -1167,7 +1124,7 @@ export default function NewOrderPage() {
                   <div 
                     key={item.id} 
                     className="aspect-square bg-white rounded-xl shadow-soft border border-gray-200 hover:shadow-medium transition-all duration-200 relative cursor-pointer overflow-hidden flex flex-col"
-                    onClick={() => addToOrder(item)}
+                    onClick={() => handleItemClick(item)}
                   >
                     {/* Product Image */}
                     <div className="h-40 bg-gray-100 relative overflow-hidden">
@@ -1358,16 +1315,16 @@ export default function NewOrderPage() {
             ) : (
               <div className="space-y-4">
                 {orderItems.map((item, index) => (
-                  <div key={item.id} className="bg-gray-50 rounded-lg p-3">
+                  <div key={item.key} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
                         <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
                           {(index + 1).toString().padStart(2, '0')}
                         </span>
-                        <h4 className="font-medium text-gray-900">{item.name}</h4>
+                        <h4 className="font-medium text-gray-900">{item.productName}</h4>
                       </div>
                       <button
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItem(item.key)}
                         className="text-red-400 hover:text-red-600 transition-colors duration-200"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1381,57 +1338,51 @@ export default function NewOrderPage() {
                       </div>
                     )}
                     
+                    {/* Add-ons and Variants Display */}
+                    {(item.addons && item.addons.length > 0) || item.variant ? (
+                      <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                        {item.addons && item.addons.length > 0 && (
+                          <div className="mb-1">
+                            <span className="font-medium">Add-ons:</span> {item.addons.map(e => e.name).join(', ')}
+                          </div>
+                        )}
+                        {item.variant && (
+                          <div>
+                            <span className="font-medium">Variant:</span> {item.variant.name}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.key, item.quantity - 1)}
                           className="w-6 h-6 bg-white border border-gray-300 rounded flex items-center justify-center text-gray-600 hover:bg-gray-50"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
                         <span className="w-8 text-center font-medium">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.key, item.quantity + 1)}
                           className="w-6 h-6 bg-white border border-gray-300 rounded flex items-center justify-center text-gray-600 hover:bg-gray-50"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-gray-900">{format(item.total)}</p>
+                        <p className="font-medium text-gray-900">{format(item.totalPrice)}</p>
                       </div>
                     </div>
                     
-                    {/* Extras badges inline with customization notes action */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-2">
-                        {(() => {
-                          const prod = products.find(p => p.id === item.id) as any;
-                          const extras = (prod as any)?.extras || [];
-                          if (extras.length === 0) return null;
-                          const selectedIds = new Set((item.extras || []).map(e => e.id));
-                          return extras.map((ex: any) => {
-                            const enabled = selectedIds.has(ex.id);
-                            return (
-                              <button
-                                key={ex.id}
-                                onClick={() => toggleExtraForItem(item.id, { id: ex.id, name: ex.name, price: ex.price })}
-                                className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${enabled ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}
-                                title={`${ex.name} (+${format(Number(ex.price))})`}
-                              >
-                                {ex.name}
-                              </button>
-                            );
-                          });
-                        })()}
-                      </div>
+                    <div className="flex items-center justify-end">
                       <button
                         onClick={() => {
-                          const menuItem = findMenuItemById(item.id);
+                          const menuItem = findMenuItemById(item.productId);
                           if (menuItem) {
                             setSelectedItem(menuItem);
                             setCustomizationNotes(item.customizationNotes || "");
-                            setEditingItemId(item.id);
+                            setEditingItemId(item.key);
                             setShowCustomizationModal(true);
                           }
                         }}
@@ -1818,7 +1769,7 @@ export default function NewOrderPage() {
                     updateItemCustomizationNotes(editingItemId, customizationNotes);
                   } else {
                     // Add new item to order
-                    addToOrder(selectedItem, customizationNotes);
+                    addToOrder(selectedItem, [], undefined, customizationNotes);
                   }
                   setShowCustomizationModal(false);
                   setSelectedItem(null);
@@ -1834,8 +1785,24 @@ export default function NewOrderPage() {
         </div>
       )}
 
-      {/* Customer Search Modal */}
-      {/* This modal is no longer needed as customer input is inline */}
+      {/* Combined Item Options Modal */}
+      {showItemOptionsModal && selectedProductForModal && (
+        <ItemOptionsModal
+          product={selectedProductForModal}
+          addons={selectedProductForModal.extras || []}
+          variants={selectedProductForModal.variants || []}
+          open={showItemOptionsModal}
+          onConfirm={(selectedAddons, selectedVariant) => {
+            addToOrder(selectedProductForModal, selectedAddons, selectedVariant || undefined);
+            setShowItemOptionsModal(false);
+            setSelectedProductForModal(null);
+          }}
+          onClose={() => {
+            setShowItemOptionsModal(false);
+            setSelectedProductForModal(null);
+          }}
+        />
+      )}
 
       {/* Payment Drawer */}
       {showPaymentDrawer && currentOrder && (

@@ -8,7 +8,7 @@ import { useOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
 import { OrderFilters } from "@/types/orders";
 import KitchenTimer from "@/components/ui/KitchenTimer";
 import PaymentDrawer from "@/components/ui/PaymentDrawer";
-// print bill has been removed for now; we'll wire this later
+import { printBillFromOrder } from "@/lib/print/bill";
 import RefundDrawer from "@/components/ui/RefundDrawer";
 import { Order } from "@/types/orders";
 import { formatKOTNumber } from "@/lib/utils";
@@ -407,8 +407,14 @@ export default function OrdersPage() {
         queryClient.invalidateQueries({ queryKey: ["orders"] });
       }
       
-      // Printing disabled for now
-      console.log('Print disabled: bill printing is temporarily removed.');
+      // Print the bill after successful payment
+      if (selectedOrderForPayment) {
+        try {
+          await printBillFromOrder(selectedOrderForPayment as any, true, paymentDetails);
+        } catch (error) {
+          console.error('Failed to print bill after payment:', error);
+        }
+      }
 
       // Show success toast
       setToast({
@@ -471,19 +477,22 @@ export default function OrdersPage() {
     const orderData = {
       isAmending: true,
       existingOrderId: order.id,
-      orderType: order.orderType,
+      orderType: order.orderType || 'dine-in',
       tableId: order.tableId,
       tableNumber: order.tableNumber,
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       customerId: order.customerId,
       existingItems: (order.orderItems || []).map((item: any) => ({
-        id: item.productId,
-        name: item.productName,
-        price: item.unitPrice,
+        key: `existing-${item.productId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        productId: item.productId,
+        productName: item.productName,
+        basePrice: item.unitPrice,
         quantity: item.quantity,
-        total: item.totalPrice,
-        customizationNotes: item.customizationNotes
+        totalPrice: item.totalPrice,
+        addons: [],
+        variant: undefined,
+        customizationNotes: item.customizationNotes || ''
       }))
     };
     
@@ -493,18 +502,30 @@ export default function OrdersPage() {
     router.push('/dashboard/new-order');
   };
 
-  const handlePrintBill = (order: Order) => {
+  const handlePrintBill = async (order: Order) => {
     if (order.paymentStatus === "paid") {
-      // In a real application, you would trigger a print dialog or a new window
-      // For demonstration, we'll just show a toast
-      setToast({
-        message: `Printing duplicate bill for order ${order.orderNumber}...`,
-        type: 'success',
-        isVisible: true
-      });
-      setTimeout(() => {
-        setToast(null);
-      }, 3000); // Hide after 3 seconds
+      try {
+        await printBillFromOrder(order, true);
+        
+        setToast({
+          message: `Bill printed successfully for order ${order.orderNumber}`,
+          type: 'success',
+          isVisible: true
+        });
+        setTimeout(() => {
+          setToast(null);
+        }, 3000);
+      } catch (error) {
+        console.error('Failed to print bill:', error);
+        setToast({
+          message: `Failed to print bill for order ${order.orderNumber}`,
+          type: 'error',
+          isVisible: true
+        });
+        setTimeout(() => {
+          setToast(null);
+        }, 3000);
+      }
     }
   };
 

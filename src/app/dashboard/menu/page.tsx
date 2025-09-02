@@ -9,6 +9,7 @@ import { Product } from "@/types/product";
 import { Category } from "@/types/category";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import ExtrasEditor from "@/components/menu/ExtrasEditor";
+import AddonsVariantsEditor, { ExtraFormRow, VariantFormRow } from "@/components/menu/AddonsVariantsEditor";
 import { OptimizedImage } from "@/components/ui/OptimizedImage";
 import { EmojiPicker } from "@/components/ui/EmojiPicker";
 
@@ -81,6 +82,7 @@ export default function MenuPage() {
     isActive: true,
     isAlcohol: false,
     extras: [] as { name: string; price: string; stockItemId?: string }[],
+    variants: [] as { id?: string; name: string; price: string; isNew?: boolean }[],
   });
 
   // Removed extra all-products query to reduce load; counts should come from categories API when available
@@ -262,12 +264,15 @@ export default function MenuPage() {
         extras: productForm.extras
           .filter((e) => e.name && e.price !== "")
           .map((e) => ({ name: e.name.trim(), price: parseFloat(e.price) || 0, stockItemId: e.stockItemId })),
+        variants: productForm.variants
+          .filter((v) => v.name && v.price !== "")
+          .map((v) => ({ name: v.name.trim(), price: parseFloat(v.price) || 0 })),
       });
       
       setShowAddProduct(false);
       setProductForm({
         name: "", description: "", price: "", cost: "", stockQuantity: "", 
-        minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, isAlcohol: false, extras: []
+        minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, isAlcohol: false, extras: [], variants: []
       });
     } catch (error) {
       console.error("Failed to create product:", error);
@@ -295,6 +300,12 @@ export default function MenuPage() {
         name: e.name,
         price: String(e.price ?? 0),
         stockItemId: e.stockItemId || undefined,
+      })),
+      variants: ((product as any).variants || []).map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        price: String(v.price ?? 0),
+        isNew: false,
       }))
     });
     setShowEditProduct(true);
@@ -355,6 +366,9 @@ export default function MenuPage() {
         extras: productForm.extras
           .filter((e) => e.name && e.price !== "")
           .map((e) => ({ name: e.name.trim(), price: parseFloat(e.price) || 0, stockItemId: e.stockItemId })),
+        variants: productForm.variants
+          .filter((v) => v.name && v.price !== "")
+          .map((v) => ({ name: v.name.trim(), price: parseFloat(v.price) || 0 })),
       });
       
       setShowEditProduct(false);
@@ -555,7 +569,7 @@ export default function MenuPage() {
               {activeCategory === "All" ? "Manage Menu Items" : `Items in ${categories.find(c => c.id === activeCategory)?.name || 'Category'}`}
             </h2>
             <button 
-              onClick={() => { setSelectedProduct(null); setProductForm({ name: "", description: "", price: "", cost: "", stockQuantity: "", minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, extras: [] }); setShowAddProduct(true); }}
+              onClick={() => { setSelectedProduct(null); setProductForm({ name: "", description: "", price: "", cost: "", stockQuantity: "", minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, isAlcohol: false, extras: [], variants: [] }); setShowAddProduct(true); }}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
@@ -1099,13 +1113,14 @@ export default function MenuPage() {
                   <span>Contains Alcohol</span>
                 </label>
               </div>
-              {/* Add Extra Section */}
-              <div className="col-span-2">
-                <ExtrasEditor
-                  extras={productForm.extras}
-                  onChange={(extras) => setProductForm({ ...productForm, extras })}
-                />
-              </div>
+              {/* Add-ons & Variants Section */}
+              <AddonsVariantsEditor
+                productId={selectedProduct?.id}
+                extras={productForm.extras}
+                variants={productForm.variants}
+                onExtrasChange={(extras) => setProductForm({ ...productForm, extras })}
+                onVariantsChange={(variants) => setProductForm({ ...productForm, variants })}
+              />
             </div>
             
             <div className="flex justify-end space-x-3 mt-6">
@@ -1285,25 +1300,14 @@ export default function MenuPage() {
                   <span>Contains Alcohol</span>
                 </label>
               </div>
-              {/* Alcohol flag */}
-              <div className="col-span-2">
-                <label className="flex items-center space-x-2 text-sm text-gray-900">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(productForm.isAlcohol)}
-                    onChange={(e) => setProductForm({ ...productForm, isAlcohol: e.target.checked })}
-                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                  />
-                  <span>Contains Alcohol</span>
-                </label>
-              </div>
-              {/* Add Extra Section */}
-              <div className="col-span-2">
-                <ExtrasEditor
-                  extras={productForm.extras}
-                  onChange={(extras) => setProductForm({ ...productForm, extras })}
-                />
-              </div>
+              {/* Add-ons & Variants Section */}
+              <AddonsVariantsEditor
+                productId={selectedProduct?.id}
+                extras={productForm.extras}
+                variants={productForm.variants}
+                onExtrasChange={(extras) => setProductForm({ ...productForm, extras })}
+                onVariantsChange={(variants) => setProductForm({ ...productForm, variants })}
+              />
             </div>
             
             <div className="flex justify-end space-x-3 mt-6">

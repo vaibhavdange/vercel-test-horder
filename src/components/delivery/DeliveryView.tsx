@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRestaurantStore } from '@/lib/store';
 import { Order } from '@/types/orders';
+import { printBillFromOrder } from '@/lib/print/bill';
 import { 
   Truck, 
   Clock, 
@@ -184,9 +185,14 @@ export default function DeliveryView({ isOpen, onClose }: DeliveryViewProps) {
                 <div className="flex space-x-1">
                   {!order.billPrinted && (
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        markBillPrinted(order.id);
+                        try {
+                          await printBillFromOrder(order as any, order.paymentStatus === "paid");
+                          markBillPrinted(order.id);
+                        } catch (error) {
+                          console.error('Failed to print bill:', error);
+                        }
                       }}
                       className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded"
                       title="Print Bill"
