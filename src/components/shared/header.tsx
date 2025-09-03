@@ -35,11 +35,11 @@ function DigitalClock() {
   };
 
   return (
-    <div className="flex items-center space-x-2">
-      <div className="text-xl font-bold text-green-600 bg-green-50 px-3 py-1 rounded-lg shadow-sm">
+    <div className="flex items-center space-x-1 sm:space-x-2">
+      <div className="text-sm sm:text-lg lg:text-xl font-bold text-green-600 bg-green-50 px-2 sm:px-3 py-1 rounded-lg shadow-sm">
         {formatTime(time)}
       </div>
-      <div className="text-sm text-gray-500">
+      <div className="text-xs sm:text-sm text-gray-500 hidden sm:block">
         {formatDate(time)}
       </div>
     </div>

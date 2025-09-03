@@ -64,6 +64,7 @@ export interface CreateProductData {
 }
 
 export interface UpdateProductData {
+  id: string;
   barcode?: string;
   name?: string;
   description?: string;

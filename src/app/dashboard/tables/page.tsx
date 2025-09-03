@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, MapPin, Settings, X, Calendar } from 'lucide-react';
+import { Plus, Users, MapPin, Settings, X, Calendar, Move } from 'lucide-react';
 import { Table, TableStatus, CreateTableRequest } from '@/types/tables';
 import PaymentDrawer from '@/components/ui/PaymentDrawer';
 import { Order } from '@/types/orders';
@@ -410,7 +410,7 @@ export default function TablesPage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => { setFloorFilter('all'); setAreaFilter('all'); }}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${floorFilter === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${floorFilter === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                     >
                       All Floors
                     </button>
@@ -418,7 +418,7 @@ export default function TablesPage() {
                       <button
                         key={floor.id}
                         onClick={() => { setFloorFilter(floor.id); setAreaFilter('all'); }}
-                        className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${floorFilter === floor.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                        className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${floorFilter === floor.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                       >
                         {floor.name}
                       </button>
@@ -437,7 +437,9 @@ export default function TablesPage() {
             </div>
 
             {/* Status chips */}
-            <div className="flex flex-wrap gap-2 lg:items-center">
+            {/* Mobile horizontal scroll */}
+            <div className="min-[801px]:hidden -mx-2 overflow-x-auto">
+              <div className="flex items-center gap-2 px-2 snap-x snap-mandatory">
                 {([
                   { key: 'all', label: 'All' },
                   { key: 'available', label: 'Available' },
@@ -449,7 +451,27 @@ export default function TablesPage() {
                   <button
                     key={key}
                     onClick={() => setStatusFilter(key as any)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${statusFilter === key ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap snap-start ${statusFilter === key ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Desktop wrap */}
+            <div className="hidden min-[801px]:flex flex-wrap gap-2 lg:items-center">
+                {([
+                  { key: 'all', label: 'All' },
+                  { key: 'available', label: 'Available' },
+                  { key: 'occupied', label: 'Occupied' },
+                  { key: 'reserved', label: 'Reserved' },
+                  { key: 'cleaning', label: 'Cleaning' },
+                  { key: 'unavailable', label: 'Unavailable' },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setStatusFilter(key as any)}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${statusFilter === key ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                   >
                     {label}
                   </button>
@@ -457,11 +479,32 @@ export default function TablesPage() {
             </div>
 
             {/* Bottom row: Areas for selected floor */}
+            {/* Mobile horizontal scroll */}
             <div className="flex items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
+              <div className="min-[801px]:hidden -mx-2 overflow-x-auto">
+                <div className="flex items-center gap-2 px-2 snap-x snap-mandatory">
+                  <button
+                    onClick={() => setAreaFilter('all')}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap snap-start ${areaFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                  >
+                    All Areas
+                  </button>
+                  {visibleAreas.map((area) => (
+                    <button
+                      key={area.id}
+                      onClick={() => setAreaFilter(area.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap snap-start ${areaFilter === area.id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                      {area.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Desktop wrap */}
+              <div className="hidden min-[801px]:flex flex-wrap gap-2">
                 <button
                   onClick={() => setAreaFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${areaFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${areaFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                 >
                   All Areas
                 </button>
@@ -469,7 +512,7 @@ export default function TablesPage() {
                   <button
                     key={area.id}
                     onClick={() => setAreaFilter(area.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${areaFilter === area.id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${areaFilter === area.id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                   >
                     {area.name}
                   </button>
@@ -478,29 +521,7 @@ export default function TablesPage() {
               {/* Reset filters button removed */}
             </div>
             
-            {/* Comprehensive Edit Button - positioned at bottom right of container */}
-            <div className="relative">
-              <div className="absolute -bottom-2 -right-2 flex gap-2">
-                <button
-                  onClick={() => setIsEditMode(!isEditMode)}
-                  className={`px-4 py-2 rounded-full transition-colors text-sm font-medium border ${
-                    isEditMode 
-                      ? 'bg-gray-900 text-white border-gray-900' 
-                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-900 hover:text-white hover:border-gray-900'
-                  }`}
-                  title="Drag tables to rearrange layout"
-                >
-                  Rearrange Table Layout
-                </button>
-                <button
-                  onClick={() => setShowManagementModal(true)}
-                  className="bg-white text-gray-700 px-4 py-2 rounded-full hover:bg-gray-900 hover:text-white transition-colors text-sm font-medium border border-gray-200 hover:border-gray-900"
-                  title="Manage Floors, Areas & Tables"
-                >
-                  Manage
-                </button>
-              </div>
-            </div>
+            {/* Actions moved next to Tables heading */}
           </div>
         </div>
 
@@ -510,7 +531,7 @@ export default function TablesPage() {
         <div className="mb-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h3 className="text-lg font-medium text-gray-900">Tables</h3>
+              <h3 className="text-base sm:text-lg min-[801px]:text-lg font-medium text-gray-900">Tables</h3>
               
               {/* Saving Indicator */}
               {isSavingOrder && (
@@ -524,7 +545,29 @@ export default function TablesPage() {
               
               {/* Reset order button removed */}
             </div>
-
+            
+            {/* Actions: Rearrange + Manage */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsEditMode(!isEditMode)}
+                className={`p-2 rounded-full transition-colors border whitespace-nowrap shrink-0 ${
+                  isEditMode 
+                    ? 'bg-gray-900 text-white border-gray-900' 
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-900 hover:text-white hover:border-gray-900'
+                }`}
+                title="Rearrange Table Layout"
+              >
+                <Move className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowManagementModal(true)}
+                className="p-2 rounded-full transition-colors border bg-white text-gray-700 hover:bg-gray-900 hover:text-white border-gray-200 hover:border-gray-900 whitespace-nowrap shrink-0"
+                title="Manage Floors, Areas & Tables"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+            
             {/* Dropdown filters removed to avoid redundancy */}
           </div>
           
@@ -557,7 +600,7 @@ export default function TablesPage() {
               </SortableContext>
             </DndContext>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 auto-rows-[180px] items-stretch">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 min-[801px]:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 auto-rows-[180px] items-stretch">
               {sortedFilteredTables.map((table) => (
                 <TableCard
                   key={table.id}

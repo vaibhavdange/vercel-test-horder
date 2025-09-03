@@ -579,7 +579,26 @@ export default function OrdersPage() {
         {/* Filters and Search */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
           {/* Status Tabs */}
-          <div className="flex flex-wrap gap-2">
+          {/* Mobile horizontal scroll */}
+          <div className="min-[801px]:hidden -mx-2 overflow-x-auto">
+            <div className="flex items-center gap-2 px-2 snap-x snap-mandatory">
+              {statusOptions.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setActiveStatus(status)}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap snap-start ${
+                    activeStatus === status
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {formatStatusLabel(status)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Desktop wrap */}
+          <div className="hidden min-[801px]:flex flex-wrap gap-2">
             {statusOptions.map((status) => (
               <button
                 key={status}
@@ -723,9 +742,9 @@ export default function OrdersPage() {
                 })}`}
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 min-[801px]:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               {filteredOrders.map((order) => (
-              <div id={`order-card-${order.id}`} key={order.id} className={`bg-white rounded-xl p-6 shadow-soft border border-gray-100 hover:shadow-medium transition-shadow duration-200 flex flex-col ${highlightOrderId === order.id ? 'ring-2 ring-blue-500' : ''}`}>
+              <div id={`order-card-${order.id}`} key={order.id} className={`bg-white rounded-xl p-4 sm:p-5 min-[801px]:p-6 shadow-soft border border-gray-100 hover:shadow-medium transition-shadow duration-200 flex flex-col ${highlightOrderId === order.id ? 'ring-2 ring-blue-500' : ''}`}>
                 {/* Order Header - Compact Top Bar */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -811,8 +830,8 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Customer Info - Compact Single Line */}
-                <div className="mb-4 p-2 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between text-xs">
+                <div className="mb-3 sm:mb-4 p-2 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between text-[11px] sm:text-xs">
                     <div className="flex items-center space-x-3">
                       <span className="font-semibold text-gray-900">{order.customerName || (order.customerId ? "Customer" : "Walk-in Customer")}</span>
                       {order.customerPhone && (
@@ -824,17 +843,17 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Order Items - Prominent & Clean with Typewriter Font */}
-                <div className="mb-4 p-3 bg-white border border-gray-200 rounded-lg">
-                  <div className="grid grid-cols-12 gap-2 text-sm font-medium text-gray-700 border-b border-gray-200 pb-1 mb-2">
+                <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg">
+                  <div className="grid grid-cols-12 gap-2 text-xs sm:text-sm font-medium text-gray-700 border-b border-gray-200 pb-1 mb-2">
                     <div className="col-span-2">Qty</div>
                     <div className="col-span-6">Item</div>
                     <div className="col-span-4 text-amber-600">Notes</div>
                   </div>
                   {(order.orderItems || []).map((item: any, index: number) => (
                     <div key={index} className="grid grid-cols-12 gap-2 py-1">
-                      <div className="col-span-2 text-gray-600 font-mono text-sm">{item.quantity}</div>
-                      <div className="col-span-6 text-gray-900 font-mono text-sm leading-tight">{item.productName}</div>
-                      <div className="col-span-4 text-amber-600 font-mono text-sm">
+                      <div className="col-span-2 text-gray-600 font-mono text-xs sm:text-sm">{item.quantity}</div>
+                      <div className="col-span-6 text-gray-900 font-mono text-xs sm:text-sm leading-tight">{item.productName}</div>
+                      <div className="col-span-4 text-amber-600 font-mono text-xs sm:text-sm">
                         {formatNotesForKOT(item.customizationNotes)}
                       </div>
                     </div>

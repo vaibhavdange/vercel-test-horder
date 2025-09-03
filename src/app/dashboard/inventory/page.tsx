@@ -17,7 +17,7 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [stockFilter, setStockFilter] = useState("All");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items');
 
   // Form state
@@ -199,21 +199,27 @@ export default function InventoryPage() {
       
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
         {/* Header */}
+        <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">
-              {activeTab === 'items' ? `${filteredStockItems.length} Total Stock Items` : `${categories?.length || 0} Categories`}
-            </h1>
-            <div className="flex bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center space-x-2">
               <button
                 onClick={() => setActiveTab('items')}
-                className={`px-3 py-1 rounded-md text-sm transition-colors ${activeTab === 'items' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                    activeTab === 'items' 
+                      ? 'bg-gray-900 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 Items
               </button>
               <button
                 onClick={() => setActiveTab('categories')}
-                className={`px-3 py-1 rounded-md text-sm transition-colors ${activeTab === 'categories' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                    activeTab === 'categories' 
+                      ? 'bg-gray-900 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 Categories
               </button>
@@ -221,7 +227,82 @@ export default function InventoryPage() {
           </div>
           <div className="flex items-center space-x-3">
             {activeTab === 'items' ? (
-              <>
+              <button
+                  onClick={() => setShowAddStockItem(true)}
+                  className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap shrink-0 text-sm font-medium"
+                  title="Add Stock Item"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Add Stock Item</span>
+                </button>
+            ) : (
+              <button
+                onClick={() => setShowAddCategory(true)}
+                className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap shrink-0 text-sm font-medium"
+                title="Add Category"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Category</span>
+              </button>
+            )}
+            </div>
+          </div>
+          
+          {/* Filters Row - Only show for Items tab */}
+          {activeTab === 'items' && (
+            <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+              {/* Search */}
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search stock items..."
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              </div>
+              
+              {/* Category Filter */}
+              <div className="sm:w-48">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="All">All Categories</option>
+                  {categories?.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Stock Filter */}
+              <div className="sm:w-48">
+                <select
+                  value={stockFilter}
+                  onChange={(e) => setStockFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="All">All Stock Levels</option>
+                  <option value="LowStock">Low Stock</option>
+                  <option value="OutOfStock">Out of Stock</option>
+                  <option value="InStock">In Stock</option>
+                </select>
+              </div>
+              
+              {/* Reset Button */}
+              <button
+                onClick={resetFilters}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+              >
+                Reset
+              </button>
+              
                 {/* View Toggle */}
                 <div className="flex bg-gray-100 rounded-lg p-1">
                   <button
@@ -247,24 +328,8 @@ export default function InventoryPage() {
                     <List className="h-4 w-4" />
                   </button>
                 </div>
-                <button
-                  onClick={() => setShowAddStockItem(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Stock Item</span>
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setShowAddCategory(true)}
-                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors duration-200 flex items-center space-x-2"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Category</span>
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         
         {/* Content by Tab */}
@@ -326,72 +391,7 @@ export default function InventoryPage() {
         )}
         
         {activeTab === 'items' && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Filters Section */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium text-gray-900">Filters</h3>
-                <button
-                  onClick={resetFilters}
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                >
-                  Reset
-                </button>
-              </div>
-              <div className="space-y-4">
-                {/* Search */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search stock..."
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Category Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  >
-                    <option value="All">All Categories</option>
-                    {categories?.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Stock Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stock Status</label>
-                  <select
-                    value={stockFilter}
-                    onChange={(e) => setStockFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  >
-                    <option value="All">All Stock Levels</option>
-                    <option value="LowStock">Low Stock</option>
-                    <option value="OutOfStock">Out of Stock</option>
-                    <option value="InStock">In Stock</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Stock Items Grid */}
-          <div className="lg:col-span-3">
+        <div className="w-full">
             {filteredStockItems.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">
@@ -586,7 +586,6 @@ export default function InventoryPage() {
                 </div>
               </div>
             )}
-          </div>
         </div>
         )}
       </div>
@@ -740,15 +739,14 @@ export default function InventoryPage() {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+                  className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
                   disabled={createStockItem.isPending || updateStockItem.isPending}
                 >
                   {createStockItem.isPending || updateStockItem.isPending ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   ) : (
-                    <Save className="h-4 w-4" />
-                  )}
                   <span>{editingStockItem ? 'Update' : 'Create'}</span>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -767,7 +765,7 @@ export default function InventoryPage() {
                       categoryId: "",
                     });
                   }}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
                 >
                   Cancel
                 </button>
@@ -829,15 +827,14 @@ export default function InventoryPage() {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+                  className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
                   disabled={createCategory.isPending || updateCategory.isPending}
                 >
                   {createCategory.isPending || updateCategory.isPending ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   ) : (
-                    <Save className="h-4 w-4" />
-                  )}
                   <span>{editingCategory ? 'Update' : 'Create'}</span>
+                  )}
                 </button>
                 
                 {editingCategory && (
@@ -845,12 +842,9 @@ export default function InventoryPage() {
                     type="button"
                     onClick={() => handleDeleteCategory(editingCategory.id)}
                     disabled={deleteCategory.isPending}
-                    className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2 bg-red-50 text-red-700 border border-red-200 rounded-full hover:bg-red-100 hover:border-red-300 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <div className="flex items-center justify-center space-x-2">
-                      <Trash2 className="h-4 w-4" />
                       <span>{deleteCategory.isPending ? "Deleting..." : "Delete"}</span>
-                    </div>
                   </button>
                 )}
                 
@@ -865,7 +859,7 @@ export default function InventoryPage() {
                       description: "",
                     });
                   }}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
                 >
                   Cancel
                 </button>
