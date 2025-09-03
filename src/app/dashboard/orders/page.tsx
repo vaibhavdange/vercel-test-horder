@@ -410,7 +410,14 @@ export default function OrdersPage() {
       // Print the bill after successful payment
       if (selectedOrderForPayment) {
         try {
-          await printBillFromOrder(selectedOrderForPayment as any, true, paymentDetails);
+          await printBillFromOrder(selectedOrderForPayment as any, true, {
+            ...paymentDetails,
+            discountMode: (selectedOrderForPayment as any)?.discountMode ?? "amount",
+            discountInput: String((selectedOrderForPayment as any)?.discountAmount ?? ""),
+            isDiscountEnabled: Number((selectedOrderForPayment as any)?.discountAmount || 0) > 0,
+            serviceChargeEnabled: Number((selectedOrderForPayment as any)?.serviceChargeAmount || 0) > 0,
+            serviceChargeRate: Number((selectedOrderForPayment as any)?.serviceChargeRate || 0),
+          } as any);
         } catch (error) {
           console.error('Failed to print bill after payment:', error);
         }
@@ -505,7 +512,13 @@ export default function OrdersPage() {
   const handlePrintBill = async (order: Order) => {
     if (order.paymentStatus === "paid") {
       try {
-        await printBillFromOrder(order, true);
+        await printBillFromOrder(order, true, {
+          discountMode: (order as any)?.discountMode ?? "amount",
+          discountInput: String((order as any)?.discountAmount ?? ""),
+          isDiscountEnabled: Number((order as any)?.discountAmount || 0) > 0,
+          serviceChargeEnabled: Number((order as any)?.serviceChargeAmount || 0) > 0,
+          serviceChargeRate: Number((order as any)?.serviceChargeRate || 0),
+        } as any);
         
         setToast({
           message: `Bill printed successfully for order ${order.orderNumber}`,

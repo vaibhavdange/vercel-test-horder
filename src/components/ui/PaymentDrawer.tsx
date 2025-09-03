@@ -343,7 +343,13 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
 
   const handleReprint = async () => {
     try {
-      await printBillFromOrder(order, order.paymentStatus === "paid");
+      await printBillFromOrder(order, order.paymentStatus === "paid", {
+        discountMode,
+        discountInput,
+        isDiscountEnabled,
+        serviceChargeEnabled: isServiceChargeEnabled,
+        serviceChargeRate,
+      } as any);
     } catch (error) {
       console.error('Failed to reprint bill:', error);
     }
@@ -448,7 +454,14 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
       const response = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(transactionData),
+        body: JSON.stringify({
+          ...transactionData,
+          // Persist computed amounts for server to record
+          taxAmount: taxAmountCalc,
+          serviceChargeAmount: serviceChargeAmountCalc,
+          serviceChargeRate: serviceChargeRate,
+          discountAmount: calculatedDiscountAmount,
+        }),
       });
 
       console.log("Transaction API response status:", response.status);
@@ -479,6 +492,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
               subtotal: computedSubtotal,
               discountAmount: calculatedDiscountAmount,
               serviceChargeAmount: serviceChargeAmountCalc,
+              serviceChargeRate: serviceChargeRate,
               taxAmount: taxAmountCalc,
               totalAmount: finalTotal,
               paymentStatus: 'paid',

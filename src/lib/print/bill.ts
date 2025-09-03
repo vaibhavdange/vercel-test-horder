@@ -205,17 +205,24 @@ function splitOrderItems(order: any) {
 }
 
 function toCartItems(items: any[]) {
-  return items.map((it) => ({
-    key: String(it.id ?? `${it.productId}-${it.quantity}-${it.unitPrice}`),
-    productId: it.productId,
-    productName: it.productName,
-    quantity: Number(it.quantity) || 0,
-    basePrice: Number(it.unitPrice) || 0,
-    totalPrice: (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0),
-    addons: [],
-    variant: undefined,
-    customizationNotes: it.customizationNotes || "",
-  }));
+  return items.map((it) => {
+    const qty = Number(it.quantity) || 0;
+    const unit = Number(it.unitPrice) || 0;
+    const persistedTotal = Number(it.totalPrice);
+    const safeTotal = !isNaN(persistedTotal) && persistedTotal > 0 ? persistedTotal : (qty * unit);
+    const inferredUnit = qty > 0 ? safeTotal / qty : unit;
+    return {
+      key: String(it.id ?? `${it.productId}-${it.quantity}-${it.unitPrice}`),
+      productId: it.productId,
+      productName: it.productName,
+      quantity: qty,
+      basePrice: inferredUnit,
+      totalPrice: safeTotal,
+      addons: [],
+      variant: undefined,
+      customizationNotes: it.customizationNotes || "",
+    };
+  });
 }
 
 function toProductsFromItems(items: any[]) {
@@ -285,36 +292,85 @@ function buildLiquorBillData(order: any, liquorItems: any[]): LiquorBillData {
 
 // ------------------- SPLIT PRINT ----------------------
 
-export async function printSplitBill(order: any, isPaid: boolean, paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }) {
+type PrintAdjustments = {
+  discountMode?: "percent" | "amount";
+  discountInput?: string; // e.g., "5" or "125.50"
+  isDiscountEnabled?: boolean;
+  serviceChargeEnabled?: boolean;
+  serviceChargeRate?: number; // percent
+};
+
+export async function printSplitBill(
+  order: any,
+  isPaid: boolean,
+  paymentDetails?: { method: string; cashReceived?: number; changeDue?: number } & PrintAdjustments
+) {
   try {
-    const items: any[] = Array.isArray(order.orderItems) ? order.orderItems : [];
+    // Re-fetch latest order with items from Supabase to ensure authoritative values
+    let persisted: any | null = null;
+    try {
+      if (order?.id) {
+        const response = await fetch(`/api/orders/${order.id}/print-data`);
+        if (response.ok) {
+          persisted = await response.json();
+          console.log('Print: Successfully fetched persisted order:', persisted?.id);
+        } else {
+          console.warn('Print: Failed to fetch order data, status:', response.status);
+        }
+      }
+    } catch (e) {
+      console.warn('Print: failed to fetch persisted order, falling back to provided object', e);
+    }
+
+    const sourceOrder: any = persisted || order;
+    const items: any[] = Array.isArray((sourceOrder as any).order_items)
+      ? (sourceOrder as any).order_items
+      : Array.isArray((sourceOrder as any).orderItems)
+      ? (sourceOrder as any).orderItems
+      : [];
     const { food, liquor } = splitOrderItems(order);
 
     // Build data for legal billing calculation (ensures correct group totals)
     const cartItems = toCartItems(items);
     const products = toProductsFromItems(items) as any[];
 
-    const subtotalAll = items.reduce((s, it) => s + (Number(it.unitPrice) || 0) * (Number(it.quantity) || 0), 0);
-    const discountAmount = Number(order.discountAmount || 0);
-    const serviceChargeAmount = Number(order.serviceChargeAmount || 0);
-    const serviceChargeRate = subtotalAll > 0 ? (serviceChargeAmount / Math.max(1, subtotalAll - discountAmount)) * 100 : 0;
+    const subtotalAll = items.reduce((s, it) => {
+      const qty = Number(it.quantity) || 0;
+      const unit = Number(it.unitPrice) || 0;
+      const persistedTotal = Number(it.totalPrice);
+      const safeTotal = !isNaN(persistedTotal) && persistedTotal > 0 ? persistedTotal : (qty * unit);
+      return s + safeTotal;
+    }, 0);
+    const discountAmount = Number((sourceOrder as any).discountAmount || 0);
+    const serviceChargeAmount = Number((sourceOrder as any).serviceChargeAmount || 0);
+    const inferredServiceChargeRate = subtotalAll > 0 ? (serviceChargeAmount / Math.max(1, subtotalAll - discountAmount)) * 100 : 0;
+
+    // Prefer explicit adjustments from caller (e.g., PaymentDrawer) if provided
+    const useDiscountMode = paymentDetails?.discountMode ?? "amount";
+    const useDiscountInput = paymentDetails?.isDiscountEnabled
+      ? (paymentDetails?.discountInput || "")
+      : (discountAmount > 0 ? String(discountAmount) : "");
+    const useDiscountEnabled = paymentDetails?.isDiscountEnabled ?? (discountAmount > 0);
+
+    const useServiceChargeEnabled = paymentDetails?.serviceChargeEnabled ?? (inferredServiceChargeRate > 0);
+    const useServiceChargeRate = paymentDetails?.serviceChargeEnabled
+      ? (paymentDetails?.serviceChargeRate || 0)
+      : (inferredServiceChargeRate > 0 ? inferredServiceChargeRate : 0);
 
     const billingConfig: BillingConfig = {
       defaultTaxRate: 5,
       defaultAlcoholTaxRate: 18,
       defaultServiceChargeRate: 5,
-      serviceChargeEnabled: serviceChargeRate > 0,
-      serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : 0,
+      serviceChargeEnabled: useServiceChargeEnabled,
+      serviceChargeRate: useServiceChargeRate,
     } as any;
 
     const legalBilling = calculateLegalBilling(
       cartItems,
-      // Provide minimal products with isAlcohol flags derived from items
       (products as any),
-      // Use amount mode and proportional allocation of discount
-      discountAmount > 0 ? String(discountAmount) : "",
-      "amount",
-      discountAmount > 0,
+      useDiscountInput,
+      useDiscountMode,
+      useDiscountEnabled,
       billingConfig
     );
 

@@ -23,6 +23,7 @@ import ItemOptionsModal from "@/components/orders/ItemOptionsModal";
 import { CartItem, CartAddon, CartVariant } from "@/types/cart";
 import { addToCart, updateCartItemQuantity, removeCartItem, calculateCartTotals } from "@/lib/utils/cart";
 import { printBillFromOrder } from "@/lib/print/bill";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Type declaration for electron
 declare global {
@@ -84,6 +85,7 @@ export default function NewOrderPage() {
 
   // Router for navigation
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Fetch categories and products from database
   const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories();
@@ -1824,6 +1826,9 @@ export default function NewOrderPage() {
           onPaymentComplete={async (transaction: any, paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }) => {
             // Print bill with paid status and payment details
             await printBill(currentOrder, true, paymentDetails);
+            // Invalidate tables and orders cache so table status updates immediately
+            queryClient.invalidateQueries({ queryKey: ["tables"] });
+            queryClient.invalidateQueries({ queryKey: ["orders"] });
             // Close payment drawer
             setShowPaymentDrawer(false);
             setCurrentOrder(null);

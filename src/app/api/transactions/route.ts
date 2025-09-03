@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, amount, method, status, reference, customerId, cashierId, notes } = body;
+    const { orderId, amount, method, status, reference, customerId, cashierId, notes, discountAmount: discountFromClient, taxAmount: taxFromClient, serviceChargeAmount: scFromClient, serviceChargeRate: scRateFromClient } = body;
 
     if (!orderId || !amount || !method) {
       return NextResponse.json(
@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
           transactionNumber: transactionNumber,
           orderId: orderId,
           totalAmount: parseFloat(amount),
-          taxAmount: 0,
-          discountAmount: 0,
+          taxAmount: taxFromClient !== undefined ? Number(taxFromClient) : 0,
+          discountAmount: discountFromClient !== undefined ? Number(discountFromClient) : 0,
           paymentMethod: method,
           paymentStatus: status || 'completed',
           cashierId: cashierId || null,
@@ -119,6 +119,12 @@ export async function POST(request: NextRequest) {
         .update({
           paymentStatus: 'paid',
           paymentMethod: method,
+          // keep server-side truth up to date with monetary fields if provided
+          discountAmount: discountFromClient !== undefined ? Number(discountFromClient) : undefined,
+          serviceChargeAmount: scFromClient !== undefined ? Number(scFromClient) : undefined,
+          serviceChargeRate: scRateFromClient !== undefined ? Number(scRateFromClient) : undefined,
+          taxAmount: taxFromClient !== undefined ? Number(taxFromClient) : undefined,
+          totalAmount: amount !== undefined ? Number(amount) : undefined,
           updatedAt: new Date().toISOString(),
         })
         .eq('id', orderId);

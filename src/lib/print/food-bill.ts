@@ -21,6 +21,10 @@ export interface FoodBillData {
     price: number;
     quantity: number;
     amount: number;
+    // NEW: variant & addons for display
+    variant?: { name: string; price: number };
+    addons?: Array<{ name: string; price: number }>;
+    notes?: string;
   }>;
   subtotal: number;
   discount: number;
@@ -205,6 +209,9 @@ export function generateFoodBillHTML(data: FoodBillData): string {
     <div class="qty">${item.quantity.toFixed(2)}</div>
     <div class="amt">${formatCurrency(item.amount)}</div>
   </div>
+  ${item.notes ? `<div class="row" style="font-style: italic; color: #555; font-size: 10px;">
+    <div class="label">${item.notes}</div>
+  </div>` : ''}
   `).join('')}
   
   <div class="separator"></div>
@@ -284,12 +291,23 @@ export function generateFoodBillHTML(data: FoodBillData): string {
 }
 
 export function generateFoodBillFromOrder(order: Order, legalBilling: LegalBillingResult): string {
-  const items = (legalBilling.foodItems || []).map(item => ({
-    name: item.productName,
-    price: item.basePrice,
-    quantity: item.quantity,
-    amount: (item as any).discountedPrice || item.totalPrice
-  }));
+  const items = (legalBilling.foodItems || []).map(item => {
+    const quantity = item.quantity || 0;
+    const unitPrice = quantity > 0 ? item.totalPrice / quantity : item.totalPrice; // includes addons / variants
+
+    // Calculate total price including addons and variants
+    // unitPrice already includes addons and variant amounts, so avoid double-counting
+
+    return {
+      name: item.productName,
+      price: unitPrice,
+      quantity,
+      amount: (item as any).discountedPrice || item.totalPrice,
+      variant: item.variant ? { name: item.variant.name, price: item.variant.price } : undefined,
+      addons: (item.addons || []).map((a: any) => ({ name: a.name, price: a.price })),
+      notes: item.customizationNotes || (item as any).customizationNotes,
+    };
+  });
 
   const subtotal = Number(legalBilling.foodSubtotal || 0);
   const discount = Number((legalBilling as any).foodDiscount ?? (legalBilling as any).discountAmount ?? 0);

@@ -21,6 +21,9 @@ export interface LiquorBillData {
     price: number;
     quantity: number;
     amount: number;
+    variant?: { name: string; price: number };
+    addons?: Array<{ name: string; price: number }>;
+    notes?: string;
   }>;
   subtotal: number;
   discount: number;
@@ -49,94 +52,128 @@ export function generateLiquorBillHTML(data: LiquorBillData): string {
   return `
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Thermal Bill</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        font-size: 12px;
-        width: 80mm;
-        margin: 0 auto;
-        padding: 0;
-        line-height: 1.4
-      }
-
-      .separator {
-        border-top: 1px solid #000;
-        margin: 5px 0
-      }
-
-      .header {
-        text-align: left;
-        margin-bottom: 5px
-      }
-
-      .header strong {
-        font-size: 14px
-      }
-
-      .right {
-        float: right
-      }
-
-      .row {
-        display: flex;
-        justify-content: space-between;
-        margin: 2px 0
-      }
-
-      .row.bold {
-        font-weight: 700
-      }
-
-      .row .label {
-        flex: 2
-      }
-
-      .row .amt,
-      .row .price,
-      .row .qty {
-        flex: 1;
-        text-align: right
-      }
-
-      .section-title {
-        text-align: center;
-        font-weight: 700;
-        margin: 5px 0
-      }
-
-      .total {
-        font-weight: 700
-      }
-
-      .center {
-        display: block;
-        text-align: center;
-        margin-top: 5px;
-        font-size: 11px
-      }
-      
-      .policy {
-        font-size: 9px;
-        color: gray;
-        display: block;
-        margin-top: 5px;
-        line-height: 1.2;
-        text-align: left;
-      }
+<head>
+  <meta charset="UTF-8">
+  <title>Liquor Bill</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      width: 80mm;
+      margin: 0 auto;
+      padding: 0;
+      line-height: 1.4
+    }
+    
+    .separator {
+      border-top: 1px solid #000;
+      margin: 5px 0
+    }
+    
+    .header {
+      text-align: left;
+      margin-bottom: 5px
+    }
+    
+    .header strong {
+      font-size: 16px
+    }
+    
+    .row {
+      display: flex;
+      justify-content: space-between;
+      margin: 2px 0
+    }
+    
+    .row.bold {
+      font-weight: 700
+    }
+    
+    .row .label {
+      flex: 2
+    }
+    
+    .row .amt,
+    .row .price,
+    .row .qty {
+      flex: 1;
+      text-align: right
+    }
+    
+    .section-title {
+      text-align: center;
+      font-weight: 700;
+      margin: 5px 0
+    }
+    
+    .total {
+      font-weight: 700
+    }
+    
+    .center {
+      display: block;
+      text-align: center;
+      margin-top: 5px;
+      font-size: 11px
+    }
+    
+    .policy {
+      font-size: 9px;
+      color: gray;
+      display: block;
+      margin-top: 5px;
+      line-height: 1.2;
+      text-align: left
+    }
+    
+    .headersmall {
+      font-size: 10px;
+      color: gray;
+      display: block;
+      margin-top: 2px;
+      line-height: 1.2;
+      text-align: left
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 5px
+    }
+    
+    .header-left {
+      flex: 3;
+      text-align: left
+    }
+    
+    .header-right {
+      flex: 1;
+      text-align: right
+    }
+    
+    .header-right img {
+      max-width: 80px;
+      height: auto
+    }
+    
+    .powered {
+      font-size: 9px;
+      margin-top: 3px
+    }
     </style>
   </head>
   <body>
-    <!-- Liquor Bill -->
-    <div class="header">
-      <strong>${data.restaurantName}</strong>
-      <br>${data.address} <br>${data.phone} • ${data.email} <br>${data.website} <br>FSSAI <span class="right">${data.fssai}</span>
-      <br>GSTIN <span class="right">${data.gstin}</span>
-      <br>
-      <span class="center">- This restaurant is Powered by Horders POS -</span>
+     <div class="header">
+    <div class="header-left">
+      <strong>${data.restaurantName}</strong><br>
+      <span class="headersmall">${data.address}<br>${data.phone} • ${data.email}<br>${data.website}<br>FSSAI: ${data.fssai}<br>GSTIN: ${data.gstin}</span>
+      <div class="powered">This Store is Powered by Horders POS</div>
     </div>
+    <div class="header-right">
+      <img src="https://img.freepik.com/free-vector/gradient-restaurant-logo-design_23-2151257068.jpg" alt="Logo">
+    </div>
+  </div>
     
     <div class="separator"></div>
     
@@ -171,6 +208,21 @@ export function generateLiquorBillHTML(data: LiquorBillData): string {
       <div class="qty">${item.quantity.toFixed(2)}</div>
       <div class="amt">${formatCurrency(item.amount)}</div>
     </div>
+    ${item.variant ? `<div class="row" style="font-style: italic; color: #555;">
+      <div class="label">Variant: ${item.variant.name}</div>
+      <div class="price"></div>
+      <div class="qty"></div>
+      <div class="amt">${formatCurrency(item.variant.price)}</div>
+    </div>` : ''}
+    ${(item.addons || []).map(ad => `<div class="row" style="font-style: italic; color: #555;">
+      <div class="label">Add-on: ${ad.name}</div>
+      <div class="price"></div>
+      <div class="qty"></div>
+      <div class="amt">${formatCurrency(ad.price)}</div>
+    </div>`).join('')}
+    ${item.notes ? `<div class="row" style="font-style: italic; color: #555; font-size: 10px;">
+      <div class="label">${item.notes}</div>
+    </div>` : ''}
     `).join('')}
     
     <div class="separator"></div>
@@ -183,7 +235,7 @@ export function generateLiquorBillHTML(data: LiquorBillData): string {
     <div class="row">
       <div class="label">Discount</div>
       <div class="price">${data.discountMode === 'percent' ? formatPercentage(data.discount) : formatCurrency(data.discount)}</div>
-      <div class="amt">-</div>
+      <div class="amt">-${formatCurrency(data.discount)}</div>
     </div>
     
     <div class="row">
@@ -228,23 +280,36 @@ export function generateLiquorBillHTML(data: LiquorBillData): string {
     </div>
     
     <div class="footer">
-      <span class="center">Thank you for coming. <br>We wish to see you again at ${data.restaurantName.split(' ')[0]}! </span>
-      <div class="policy">
-        <br>
-        <span class="left">All prices are inclusive of applicable taxes unless stated otherwise. Service charge, if any, is discretionary. Liquor is served only to guests above 25 years of age (as per law). No outside food or beverages allowed. Management reserves the right of admission. Please drink responsibly.</span>
-      </div>
+    <span class="center">Thank you for coming.<br>We wish to see you again at ${data.restaurantName.split(' ')[0]}!</span>
+    <div class="policy">
+      • All prices are inclusive of applicable taxes unless stated otherwise.<br>
+      • Service charge, if any, is discretionary.<br>
+      • Liquor is served only to guests above 25 years of age (as per law).<br>
+      • No outside food or beverages allowed.<br>
+      • Management reserves the right of admission.<br>
+      • Please drink responsibly.
     </div>
   </body>
 </html>`;
 }
 
 export function generateLiquorBillFromOrder(order: Order, legalBilling: LegalBillingResult): string {
-  const items = (legalBilling.alcoholItems || []).map(item => ({
-    name: item.productName,
-    price: item.basePrice,
-    quantity: item.quantity,
-    amount: (item as any).discountedPrice || item.totalPrice
-  }));
+  const items = (legalBilling.alcoholItems || []).map(item => {
+    const quantity = item.quantity || 0;
+    const unitPrice = quantity > 0 ? item.totalPrice / quantity : item.totalPrice; // includes addons / variants
+
+    // unitPrice already includes addons/variant amounts
+
+    return {
+      name: item.productName,
+      price: unitPrice,
+      quantity,
+      amount: (item as any).discountedPrice || item.totalPrice,
+      variant: item.variant ? { name: item.variant.name, price: item.variant.price } : undefined,
+      addons: (item.addons || []).map((a: any) => ({ name: a.name, price: a.price })),
+      notes: item.customizationNotes || (item as any).customizationNotes,
+    };
+  });
 
   const subtotal = Number(legalBilling.alcoholSubtotal || 0);
   const discount = Number((legalBilling as any).alcoholDiscount ?? (legalBilling as any).discountAmount ?? 0);
@@ -277,7 +342,7 @@ export function generateLiquorBillFromOrder(order: Order, legalBilling: LegalBil
     items,
     subtotal,
     discount,
-    discountMode: "percent" | "amount",
+    discountMode: (legalBilling as any).alcoholDiscountMode ?? (legalBilling as any).discountMode ?? "amount",
     serviceCharge,
     serviceChargeRate: Number(serviceChargeRate.toFixed(2)),
     grandTotal: grandBeforeTax,

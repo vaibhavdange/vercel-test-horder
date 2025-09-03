@@ -666,7 +666,9 @@ export class SupabaseDatabase {
     notes: string;
     subtotal: number;
     taxAmount: number;
+    discountAmount: number;
     serviceChargeAmount: number;
+    serviceChargeRate: number;
     totalAmount: number;
     orderItems: Array<{
       productId: string;
@@ -689,7 +691,9 @@ export class SupabaseDatabase {
       if (typeof updates.notes !== 'undefined') payload.notes = updates.notes;
       if (typeof updates.subtotal === 'number') payload.subtotal = updates.subtotal;
       if (typeof updates.taxAmount === 'number') payload.taxAmount = updates.taxAmount;
+      if (typeof updates.discountAmount === 'number') payload.discountAmount = updates.discountAmount;
       if (typeof updates.serviceChargeAmount === 'number') payload.serviceChargeAmount = updates.serviceChargeAmount;
+      if (typeof updates.serviceChargeRate === 'number') payload.serviceChargeRate = updates.serviceChargeRate;
       if (typeof updates.totalAmount === 'number') payload.totalAmount = updates.totalAmount;
 
       if (Object.keys(payload).length > 1) {

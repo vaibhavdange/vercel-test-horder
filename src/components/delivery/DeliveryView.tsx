@@ -188,7 +188,13 @@ export default function DeliveryView({ isOpen, onClose }: DeliveryViewProps) {
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
-                          await printBillFromOrder(order as any, order.paymentStatus === "paid");
+                          await printBillFromOrder(order as any, order.paymentStatus === "paid", {
+                            discountMode: (order as any)?.discountMode ?? "amount",
+                            discountInput: String((order as any)?.discountAmount ?? ""),
+                            isDiscountEnabled: Number((order as any)?.discountAmount || 0) > 0,
+                            serviceChargeEnabled: Number((order as any)?.serviceChargeAmount || 0) > 0,
+                            serviceChargeRate: Number((order as any)?.serviceChargeRate || 0),
+                          } as any);
                           markBillPrinted(order.id);
                         } catch (error) {
                           console.error('Failed to print bill:', error);

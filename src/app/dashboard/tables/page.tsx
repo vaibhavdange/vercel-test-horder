@@ -753,7 +753,15 @@ export default function TablesPage() {
               try {
                 // Print the bill after successful payment
                 if (selectedOrderForPayment) {
-                  await printBillFromOrder(selectedOrderForPayment as any, true, paymentDetails);
+                  await printBillFromOrder(selectedOrderForPayment as any, true, {
+                    ...paymentDetails,
+                    // best effort: reuse UI state if available on order
+                    discountMode: (selectedOrderForPayment as any)?.discountMode ?? "amount",
+                    discountInput: String((selectedOrderForPayment as any)?.discountAmount ?? ""),
+                    isDiscountEnabled: Number((selectedOrderForPayment as any)?.discountAmount || 0) > 0,
+                    serviceChargeEnabled: Number((selectedOrderForPayment as any)?.serviceChargeAmount || 0) > 0,
+                    serviceChargeRate: Number((selectedOrderForPayment as any)?.serviceChargeRate || 0),
+                  } as any);
                 }
               } catch (error) {
                 console.error('Failed to print bill after payment:', error);
