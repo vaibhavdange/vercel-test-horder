@@ -22,7 +22,7 @@ import { useAnalytics } from "@/hooks/use-analytics";
 import ItemOptionsModal from "@/components/orders/ItemOptionsModal";
 import { CartItem, CartAddon, CartVariant } from "@/types/cart";
 import { addToCart, updateCartItemQuantity, removeCartItem, calculateCartTotals } from "@/lib/utils/cart";
-import { printBillFromOrder } from "@/lib/print/bill";
+import { printBillFromOrderAuto } from "@/lib/print/bill";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Type declaration for electron
@@ -808,7 +808,7 @@ export default function NewOrderPage() {
         }
       })();
 
-      await printBillFromOrder(order, isPaid, paymentDetails);
+      await printBillFromOrderAuto(order, isPaid, paymentDetails);
     } catch (error) {
       console.error("Failed to print Bill:", error);
     }

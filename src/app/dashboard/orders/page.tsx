@@ -8,7 +8,7 @@ import { useOrders, useUpdateOrderStatus } from "@/hooks/use-orders";
 import { OrderFilters } from "@/types/orders";
 import KitchenTimer from "@/components/ui/KitchenTimer";
 import PaymentDrawer from "@/components/ui/PaymentDrawer";
-import { printBillFromOrder } from "@/lib/print/bill";
+import { printBillFromOrderAuto } from "@/lib/print/bill";
 import RefundDrawer from "@/components/ui/RefundDrawer";
 import { Order } from "@/types/orders";
 import { formatKOTNumber } from "@/lib/utils";
@@ -398,25 +398,31 @@ export default function OrdersPage() {
 
   const handlePaymentComplete = async (transaction: any, paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }) => {
     console.log("Payment completed with transaction:", transaction);
-    
     try {
       // Update the order's payment status to trigger a refresh
       if (selectedOrderForPayment) {
         // The transaction API already updated the order, but we need to refresh the local data
-        // This will trigger a refetch of the orders and update the UI
         queryClient.invalidateQueries({ queryKey: ["orders"] });
       }
-      
+
       // Print the bill after successful payment
       if (selectedOrderForPayment) {
         try {
-          await printBillFromOrder(selectedOrderForPayment as any, true, {
+          // Fetch the latest order from the backend before printing
+          const response = await fetch(`/api/orders/${selectedOrderForPayment.id}`);
+          let latestOrder = selectedOrderForPayment;
+          if (response.ok) {
+            latestOrder = await response.json();
+          } else {
+            console.warn('Failed to fetch latest order for printing, using local copy.');
+          }
+          await printBillFromOrderAuto(latestOrder as any, true, {
             ...paymentDetails,
-            discountMode: (selectedOrderForPayment as any)?.discountMode ?? "amount",
-            discountInput: String((selectedOrderForPayment as any)?.discountAmount ?? ""),
-            isDiscountEnabled: Number((selectedOrderForPayment as any)?.discountAmount || 0) > 0,
-            serviceChargeEnabled: Number((selectedOrderForPayment as any)?.serviceChargeAmount || 0) > 0,
-            serviceChargeRate: Number((selectedOrderForPayment as any)?.serviceChargeRate || 0),
+            discountMode: (latestOrder as any)?.discountMode ?? "amount",
+            discountInput: String((latestOrder as any)?.discountAmount ?? ""),
+            isDiscountEnabled: Number((latestOrder as any)?.discountAmount || 0) > 0,
+            serviceChargeEnabled: Number((latestOrder as any)?.serviceChargeAmount || 0) > 0,
+            serviceChargeRate: Number((latestOrder as any)?.serviceChargeRate || 0),
           } as any);
         } catch (error) {
           console.error('Failed to print bill after payment:', error);
@@ -429,12 +435,10 @@ export default function OrdersPage() {
         type: 'success',
         isVisible: true
       });
-      
       // Auto-hide toast after 5 seconds
       setTimeout(() => {
         setToast(null);
       }, 5000);
-      
     } catch (error) {
       console.error("Error handling payment completion:", error);
       setToast({
@@ -512,7 +516,7 @@ export default function OrdersPage() {
   const handlePrintBill = async (order: Order) => {
     if (order.paymentStatus === "paid") {
       try {
-        await printBillFromOrder(order, true, {
+        await printBillFromOrderAuto(order, true, {
           discountMode: (order as any)?.discountMode ?? "amount",
           discountInput: String((order as any)?.discountAmount ?? ""),
           isDiscountEnabled: Number((order as any)?.discountAmount || 0) > 0,

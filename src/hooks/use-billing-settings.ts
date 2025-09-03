@@ -161,3 +161,53 @@ export const useProductLevelTaxEnabled = () => {
     refetchOnReconnect: true,
   });
 };
+
+// Business details for bills
+export interface BusinessDetails {
+  restaurantName: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  fssai: string;
+  gstin: string;
+}
+
+// Get business details for bills
+export const useBusinessDetails = () => {
+  return useQuery({
+    queryKey: ["billing-settings", "business_details"],
+    queryFn: async (): Promise<BusinessDetails> => {
+      const response = await fetch(`${API_BASE}?key=business_details`);
+      if (!response.ok) {
+        // Return default values if not found
+        return {
+          restaurantName: "BORDERS RESTO & PUB",
+          address: "123, Example St., Delhi, 112234",
+          phone: "9012345678",
+          email: "hello@borderspub.com",
+          website: "www.borderspub.in",
+          fssai: "11223344556677",
+          gstin: "27ABCDE1234F1Z5",
+        };
+      }
+      const settings = await response.json();
+      if (!Array.isArray(settings) || settings.length === 0) {
+        // Return default values if not found
+        return {
+          restaurantName: "BORDERS RESTO & PUB",
+          address: "123, Example St., Delhi, 112234",
+          phone: "9012345678",
+          email: "hello@borderspub.com",
+          website: "www.borderspub.in",
+          fssai: "11223344556677",
+          gstin: "27ABCDE1234F1Z5",
+        };
+      }
+      return JSON.parse(settings[0].value);
+    },
+    staleTime: 30000, // Cache for 30 seconds
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+};

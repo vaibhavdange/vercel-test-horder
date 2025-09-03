@@ -8,7 +8,7 @@ import { Order } from '@/types/orders';
 import { useTables } from '@/hooks/useTables';
 import { TableCard } from '@/components/tables/TableCard';
 import { parseSupabaseTimestamp } from '@/lib/time';
-import { printBillFromOrder } from '@/lib/print/bill';
+import { printBillFromOrderAuto } from '@/lib/print/bill';
 import {
   DndContext,
   closestCenter,
@@ -753,7 +753,7 @@ export default function TablesPage() {
               try {
                 // Print the bill after successful payment
                 if (selectedOrderForPayment) {
-                  await printBillFromOrder(selectedOrderForPayment as any, true, {
+                  await printBillFromOrderAuto(selectedOrderForPayment as any, true, {
                     ...paymentDetails,
                     // best effort: reuse UI state if available on order
                     discountMode: (selectedOrderForPayment as any)?.discountMode ?? "amount",

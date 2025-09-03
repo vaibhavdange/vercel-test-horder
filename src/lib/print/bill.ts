@@ -188,6 +188,40 @@ import { generateFoodBillFromOrder } from "./food-bill";
 import { generateLiquorBillFromOrder } from "./liquor-bill";
 import { calculateLegalBilling, BillingConfig } from "../utils/legal-billing";
 
+// Helper function to get business details from billing settings
+async function getBusinessDetails(): Promise<{
+  restaurantName: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  fssai: string;
+  gstin: string;
+}> {
+  try {
+    const response = await fetch('/api/billing-settings?key=business_details');
+    if (response.ok) {
+      const settings = await response.json();
+      if (Array.isArray(settings) && settings.length > 0) {
+        return JSON.parse(settings[0].value);
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch business details from settings:', error);
+  }
+  
+  // Return default values if not found
+  return {
+    restaurantName: "BORDERS RESTO & PUB",
+    address: "123, Example St., Delhi, 112234",
+    phone: "9012345678",
+    email: "hello@borderspub.com",
+    website: "www.borderspub.in",
+    fssai: "11223344556677",
+    gstin: "27ABCDE1234F1Z5",
+  };
+}
+
 /** Detect liquor items in the plain order object (as returned from DB) */
 function splitOrderItems(order: any) {
   const items: any[] = Array.isArray(order.orderItems) ? order.orderItems : [];
@@ -303,6 +337,15 @@ type PrintAdjustments = {
 export async function printSplitBill(
   order: any,
   isPaid: boolean,
+  businessDetails: {
+    restaurantName: string;
+    address: string;
+    phone: string;
+    email: string;
+    website: string;
+    fssai: string;
+    gstin: string;
+  },
   paymentDetails?: { method: string; cashReceived?: number; changeDue?: number } & PrintAdjustments
 ) {
   try {
@@ -389,7 +432,7 @@ export async function printSplitBill(
         alcoholTotal: 0,
         totalPayable: legalBilling.foodTotal,
       } as typeof legalBilling;
-      const foodHtml = generateFoodBillFromOrder(order, foodOnly);
+      const foodHtml = generateFoodBillFromOrder(order, foodOnly, businessDetails);
       console.log("PRINT DEBUG - Food Bill HTML:\n", foodHtml);
       prints.push(foodHtml);
     }
@@ -407,7 +450,7 @@ export async function printSplitBill(
         foodTotal: 0,
         totalPayable: legalBilling.alcoholTotal,
       } as typeof legalBilling;
-      const liquorHtml = generateLiquorBillFromOrder(order, liquorOnly);
+      const liquorHtml = generateLiquorBillFromOrder(order, liquorOnly, businessDetails);
       console.log("PRINT DEBUG - Liquor Bill HTML:\n", liquorHtml);
       prints.push(liquorHtml);
     }
@@ -445,9 +488,32 @@ export async function printSplitBill(
 }
 
 // Modify existing printBillFromOrder to delegate
-export async function printBillFromOrder(order: any, isPaid: boolean, paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }): Promise<void> {
+export async function printBillFromOrder(
+  order: any, 
+  isPaid: boolean, 
+  businessDetails: {
+    restaurantName: string;
+    address: string;
+    phone: string;
+    email: string;
+    website: string;
+    fssai: string;
+    gstin: string;
+  },
+  paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }
+): Promise<void> {
   // Use new split logic
-  return printSplitBill(order, isPaid, paymentDetails);
+  return printSplitBill(order, isPaid, businessDetails, paymentDetails);
+}
+
+// Convenience function that automatically fetches business details
+export async function printBillFromOrderAuto(
+  order: any, 
+  isPaid: boolean, 
+  paymentDetails?: { method: string; cashReceived?: number; changeDue?: number }
+): Promise<void> {
+  const businessDetails = await getBusinessDetails();
+  return printBillFromOrder(order, isPaid, businessDetails, paymentDetails);
 }
 
 

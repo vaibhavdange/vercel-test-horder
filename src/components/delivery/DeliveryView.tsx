@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRestaurantStore } from '@/lib/store';
 import { Order } from '@/types/orders';
-import { printBillFromOrder } from '@/lib/print/bill';
+import { printBillFromOrderAuto } from '@/lib/print/bill';
 import { 
   Truck, 
   Clock, 
@@ -188,7 +188,7 @@ export default function DeliveryView({ isOpen, onClose }: DeliveryViewProps) {
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
-                          await printBillFromOrder(order as any, order.paymentStatus === "paid", {
+                          await printBillFromOrderAuto(order as any, order.paymentStatus === "paid", {
                             discountMode: (order as any)?.discountMode ?? "amount",
                             discountInput: String((order as any)?.discountAmount ?? ""),
                             isDiscountEnabled: Number((order as any)?.discountAmount || 0) > 0,

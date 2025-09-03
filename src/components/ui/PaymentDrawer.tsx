@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus, Banknote } from "lucide-react";
-import { printBillFromOrder } from "@/lib/print/bill";
+import { printBillFromOrderAuto } from "@/lib/print/bill";
 import { useCurrency } from "@/hooks/useCurrency";
 import { NumericKeypad } from "./NumericKeypad";
 import { OrderItem, Order } from "@/types/orders";
@@ -343,7 +343,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
 
   const handleReprint = async () => {
     try {
-      await printBillFromOrder(order, order.paymentStatus === "paid", {
+      await printBillFromOrderAuto(order, order.paymentStatus === "paid", {
         discountMode,
         discountInput,
         isDiscountEnabled,

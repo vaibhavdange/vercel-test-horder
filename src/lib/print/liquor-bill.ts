@@ -293,7 +293,19 @@ export function generateLiquorBillHTML(data: LiquorBillData): string {
 </html>`;
 }
 
-export function generateLiquorBillFromOrder(order: Order, legalBilling: LegalBillingResult): string {
+export function generateLiquorBillFromOrder(
+  order: Order, 
+  legalBilling: LegalBillingResult,
+  businessDetails: {
+    restaurantName: string;
+    address: string;
+    phone: string;
+    email: string;
+    website: string;
+    fssai: string;
+    gstin: string;
+  }
+): string {
   const items = (legalBilling.alcoholItems || []).map(item => {
     const quantity = item.quantity || 0;
     const unitPrice = quantity > 0 ? item.totalPrice / quantity : item.totalPrice; // includes addons / variants
@@ -325,13 +337,13 @@ export function generateLiquorBillFromOrder(order: Order, legalBilling: LegalBil
   ];
 
   const billData: LiquorBillData = {
-    restaurantName: "BORDERS RESTO & PUB",        // constant or settings.bill.business.name
-    address:      "123, Example St., Delhi, 112234",  
-    phone:        "9012345678",
-    email:        "hello@borderspub.com",
-    website:      "www.borderspub.in",
-    fssai:        "11223344556677",
-    gstin:        "27ABCDE1234F1Z5",
+    restaurantName: businessDetails.restaurantName,
+    address: businessDetails.address,
+    phone: businessDetails.phone,
+    email: businessDetails.email,
+    website: businessDetails.website,
+    fssai: businessDetails.fssai,
+    gstin: businessDetails.gstin,
     orderType: order.orderType || "Dine In",
     customerName: order.customerName || "Walk-in Customer",
     customerPhone: order.customerPhone || "",
