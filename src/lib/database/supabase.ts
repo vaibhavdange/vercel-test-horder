@@ -198,8 +198,11 @@ export class SupabaseDatabase {
     thumbnail: string;
     isActive: boolean;
     isAlcohol: boolean;
+    extras?: Array<{ id?: string; name: string; price: number; stockItemId?: string }>;
+    variants?: Array<{ name: string; price: number }>;
   }>) {
     try {
+      // 1. Update the main product fields
       const { data, error } = await this.client
         .from('products')
         .update({
@@ -232,8 +235,59 @@ export class SupabaseDatabase {
         .single();
 
       if (error) throw error;
-      
-      // Transform the data to match frontend expectations
+
+      // 2. Update extras (add-ons) if provided
+      if (updates.extras) {
+        // Fetch current extras from DB
+        const { data: currentExtras, error: extrasFetchError } = await this.client
+          .from('product_extras')
+          .select('*')
+          .eq('productId', id);
+        if (extrasFetchError) throw extrasFetchError;
+
+        const currentExtrasMap = new Map((currentExtras || []).map((e: any) => [e.id, e]));
+        const newExtrasMap = new Map((updates.extras || []).filter(e => e.id).map(e => [e.id, e]));
+
+        // 2a. Update existing extras
+        for (const extra of updates.extras) {
+          if (extra.id && currentExtrasMap.has(extra.id)) {
+            await this.client
+              .from('product_extras')
+              .update({
+                name: extra.name,
+                price: extra.price,
+                stockItemId: extra.stockItemId,
+                isActive: true,
+                updatedAt: new Date().toISOString(),
+              })
+              .eq('id', extra.id);
+          }
+        }
+
+        // 2b. Add new extras (no id)
+        const newExtras = updates.extras.filter(e => !e.id);
+        if (newExtras.length > 0) {
+          const extrasData = newExtras.map(extra => ({
+            id: `extra_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            productId: id,
+            name: extra.name,
+            price: extra.price,
+            stockItemId: extra.stockItemId,
+            isActive: true,
+            updatedAt: new Date().toISOString(),
+          }));
+          await this.client.from('product_extras').insert(extrasData);
+        }
+
+        // 2c. Delete removed extras
+        const newExtraIds = new Set((updates.extras || []).filter(e => e.id).map(e => e.id));
+        const toDelete = (currentExtras || []).filter((e: any) => !newExtraIds.has(e.id));
+        if (toDelete.length > 0) {
+          await this.client.from('product_extras').delete().in('id', toDelete.map((e: any) => e.id));
+        }
+      }
+
+      // 3. Transform the data to match frontend expectations
       const transformedData = {
         ...data,
         category: data.categories,
@@ -244,7 +298,6 @@ export class SupabaseDatabase {
         product_extras: undefined,
         product_variants: undefined
       };
-      
       return transformedData;
     } catch (error) {
       handleDatabaseError(error, 'update product');

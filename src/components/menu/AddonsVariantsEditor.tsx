@@ -37,6 +37,7 @@ function ExtraRow({
 }) {
   const [query, setQuery] = useState(row.name);
   const { data: suggestions = [] } = useStockItems({ search: query });
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   return (
     <div className="grid grid-cols-5 gap-2 items-start">
@@ -49,11 +50,14 @@ function ExtraRow({
             const name = e.target.value;
             onRowChange({ ...row, name, stockItemId: undefined });
             setQuery(name);
+            setShowSuggestions(true);
           }}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          onFocus={() => setShowSuggestions(true)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
         />
-        {query && suggestions.length > 0 && (
-          <div className="mt-1 max-h-32 overflow-auto border border-gray-200 rounded-md bg-white shadow-soft">
+        {query && suggestions.length > 0 && showSuggestions && (
+          <div className="mt-1 max-h-32 overflow-auto border border-gray-200 rounded-md bg-white shadow-soft z-10 absolute">
             {suggestions.slice(0, 6).map((s) => (
               <button
                 key={s.id}
@@ -61,6 +65,7 @@ function ExtraRow({
                 onClick={() => {
                   onRowChange({ ...row, name: s.name, stockItemId: s.id });
                   setQuery(s.name);
+                  setShowSuggestions(false);
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50"
               >
