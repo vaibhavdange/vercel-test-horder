@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Eye, Edit, Trash2, SortAsc, User, CalendarIcon, Clock, Loader2, AlertCircle, CheckCircle, XCircle, MinusCircle, FileText } from "lucide-react";
+import { Plus, Eye, Edit, Trash2, SortAsc, User, Clock, Loader2, AlertCircle, CheckCircle, XCircle, MinusCircle, FileText, Search, X } from "lucide-react";
 import { useStaff, useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/use-staff";
-import { useAttendance, useCreateAttendance, useUpdateAttendance, useDeleteAttendance, useBulkCreateAttendance } from "@/hooks/use-attendance";
+import { useAttendance, useCreateAttendance, useUpdateAttendance, useDeleteAttendance } from "@/hooks/use-attendance";
 import { useCategories } from "@/hooks/use-categories";
 import { Staff, CreateStaffData, UpdateStaffData, StaffAttendance, CreateAttendanceData } from "@/types/staff";
-import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
+// import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 
 export default function StaffPage() {
   const [activeTab, setActiveTab] = useState("Staff Management");
@@ -51,7 +51,6 @@ export default function StaffPage() {
   const createAttendanceMutation = useCreateAttendance();
   const updateAttendanceMutation = useUpdateAttendance();
   const deleteAttendanceMutation = useDeleteAttendance();
-  const bulkCreateAttendanceMutation = useBulkCreateAttendance();
 
   const statusOptions = ["present", "absent", "half-shift", "leave"];
 
@@ -188,22 +187,39 @@ export default function StaffPage() {
     e.preventDefault();
     
     try {
+      // Prepare form data with proper datetime formatting
+      const formData = {
+        ...attendanceFormData,
+        checkIn: attendanceFormData.checkIn ? `${attendanceFormData.date}T${attendanceFormData.checkIn}:00` : undefined,
+        checkOut: attendanceFormData.checkOut ? `${attendanceFormData.date}T${attendanceFormData.checkOut}:00` : undefined,
+      };
+
       if (editingAttendance) {
         // Update existing attendance
         await updateAttendanceMutation.mutateAsync({
           id: editingAttendance.id,
           data: {
             id: editingAttendance.id,
-            status: attendanceFormData.status,
-            checkIn: attendanceFormData.checkIn,
-            checkOut: attendanceFormData.checkOut,
-            notes: attendanceFormData.notes,
+            status: formData.status,
+            checkIn: formData.checkIn,
+            checkOut: formData.checkOut,
+            notes: formData.notes,
           }
         });
         alert("Attendance updated successfully!");
       } else {
+        // Validate required fields for new attendance
+        if (!formData.staffId) {
+          alert("Please select a staff member");
+          return;
+        }
+        if (!formData.status) {
+          alert("Please select a status");
+          return;
+        }
+        
         // Create new attendance
-        await createAttendanceMutation.mutateAsync(attendanceFormData);
+        await createAttendanceMutation.mutateAsync(formData);
         alert("Attendance recorded successfully!");
       }
       
@@ -220,8 +236,8 @@ export default function StaffPage() {
       staffId: attendance.staffId,
       date: attendance.date.split('T')[0],
       status: attendance.status,
-      checkIn: attendance.checkIn ? attendance.checkIn.split('T')[0] + 'T' + attendance.checkIn.split('T')[1].substring(0, 5) : '',
-      checkOut: attendance.checkOut ? attendance.checkOut.split('T')[0] + 'T' + attendance.checkOut.split('T')[1].substring(0, 5) : '',
+      checkIn: attendance.checkIn ? attendance.checkIn.split('T')[1]?.substring(0, 5) || '' : '',
+      checkOut: attendance.checkOut ? attendance.checkOut.split('T')[1]?.substring(0, 5) || '' : '',
       notes: attendance.notes || '',
     });
     setShowAttendanceModal(true);
@@ -250,28 +266,6 @@ export default function StaffPage() {
     setEditingAttendance(null);
   };
 
-  const handleBulkAttendance = async () => {
-    if (staffMembers.length === 0) {
-      alert("No staff members found");
-      return;
-    }
-
-    const bulkData: CreateAttendanceData[] = staffMembers.map(staff => ({
-      staffId: staff.id,
-      date: selectedDate,
-      status: "present",
-      checkIn: "",
-      checkOut: "",
-      notes: "",
-    }));
-
-    try {
-      await bulkCreateAttendanceMutation.mutateAsync(bulkData);
-      alert("Bulk attendance created successfully!");
-    } catch (error) {
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -307,64 +301,81 @@ export default function StaffPage() {
     <div className="flex flex-col h-full">
       
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {/* Header Section */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Staff ({totalStaff})</h1>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowAddStaff(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Staff</span>
-            </button>
-            <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2">
-              <SortAsc className="h-4 w-4" />
-              <span>Sort by</span>
-            </button>
+        {/* Header */}
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setActiveTab("Staff Management")}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                    activeTab === "Staff Management" 
+                      ? 'bg-gray-900 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Staff Management
+                </button>
+                <button
+                  onClick={() => setActiveTab("Attendance")}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                    activeTab === "Attendance" 
+                      ? 'bg-gray-900 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Attendance
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              {activeTab === "Staff Management" && (
+                <button
+                  onClick={() => setShowAddStaff(true)}
+                  className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap shrink-0 text-sm font-medium"
+                  title="Add Staff Member"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Add Staff</span>
+                </button>
+              )}
+              {activeTab === "Attendance" && (
+                <button
+                  onClick={() => setShowAttendanceModal(true)}
+                  className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap shrink-0 text-sm font-medium"
+                  title="Add Attendance"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Add Attendance</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setActiveTab("Staff Management")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              activeTab === "Staff Management"
-                ? "bg-green-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            Staff Management
-          </button>
-          <button
-            onClick={() => setActiveTab("Attendance")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              activeTab === "Attendance"
-                ? "bg-green-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            Attendance
-          </button>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        {/* Search and Filters Row - Only show for Staff Management tab */}
+        {activeTab === "Staff Management" && (
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+            {/* Search */}
           <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search staff by name, email, or employee ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="Search staff by name, email, or employee ID..."
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
             />
           </div>
+            </div>
+            
+            {/* Role Filter */}
           <div className="sm:w-48">
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
             >
               <option value="">All Roles</option>
               <option value="Manager">Manager</option>
@@ -373,13 +384,29 @@ export default function StaffPage() {
               <option value="Kitchen Staff">Kitchen Staff</option>
             </select>
           </div>
+            
+            {/* Reset Button */}
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedRole("");
+              }}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            >
+              Reset
+            </button>
         </div>
+        )}
 
         {/* Loading and Error States */}
         {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-            <span className="ml-2 text-gray-600">Loading staff...</span>
+          <div className="flex flex-col h-full">
+            <div className="flex-1 p-6 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading staff...</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -392,73 +419,93 @@ export default function StaffPage() {
 
         {/* Staff Table */}
         {activeTab === "Staff Management" && !isLoading && !error && (
+          <div className="w-full">
+            {staffMembers.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <User className="h-16 w-16 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No staff members found</h3>
+                <p className="text-gray-600">
+                  {searchTerm || selectedRole
+                    ? "Try adjusting your search or filters"
+                    : "Add your first staff member to get started"
+                  }
+                </p>
+              </div>
+            ) : (
           <div className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+                  <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <input type="checkbox" className="rounded border-gray-300 text-green-600 focus:ring-green-500" />
                     </th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">ID</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Name</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Date</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Timings</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Status</th>
-                    <th className="text-left py-4 px-6 font-medium text-gray-900">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {staffMembers.map((staff, index) => (
-                    <tr key={staff.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-6">
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {staffMembers.map((staff) => (
+                        <tr key={staff.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
                         <input type="checkbox" className="rounded border-gray-300 text-green-600 focus:ring-green-500" />
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-600">{staff.employeeId}</td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center space-x-3">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{staff.employeeId}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
                           <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                             <User className="h-5 w-5 text-gray-400" />
                           </div>
-                          <div>
-                            <div className="font-medium text-gray-900">{staff.user.fullName}</div>
-                            <div className="text-sm text-gray-500">{staff.user.role}</div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{staff.user.fullName}</div>
+                                <div className="text-sm text-gray-500">{staff.user.email}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-600">
-                        {staff.dateOfBirth ? new Date(staff.dateOfBirth).toLocaleDateString() : 'N/A'}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{staff.user.role}</div>
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-600">
-                        {staff.shiftStart && staff.shiftEnd ? `${staff.shiftStart} - ${staff.shiftEnd}` : 'N/A'}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{staff.user.email}</div>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${
-                            staff.isActive ? 'bg-green-500' : 'bg-red-500'
-                          }`}></div>
-                          <span className="text-sm text-gray-600">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{staff.user.phone || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              staff.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
                             {staff.isActive ? 'Active' : 'Inactive'}
                           </span>
-                        </div>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center space-x-2">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
                           <button 
-                            className="p-1 text-green-600 hover:text-green-700 transition-colors duration-200"
+                                className="text-blue-600 hover:text-blue-900"
                             title="View Details"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button 
-                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                                className="text-blue-600 hover:text-blue-900"
                             onClick={() => handleEditStaff(staff)}
                             title="Edit Staff"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button 
-                            className="p-1 text-red-400 hover:text-red-600 transition-colors duration-200"
+                                className="text-red-600 hover:text-red-900"
                             onClick={() => handleDeleteStaff(staff.id, staff.user.fullName)}
                             title="Delete Staff"
                             disabled={deleteStaffMutation.isPending}
@@ -472,6 +519,8 @@ export default function StaffPage() {
                 </tbody>
               </table>
             </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -479,70 +528,56 @@ export default function StaffPage() {
         {activeTab === "Attendance" && (
           <div className="space-y-6">
             {/* Attendance Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <h2 className="text-xl font-semibold text-gray-900">Attendance Management</h2>
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Date:</label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setShowAttendanceModal(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Attendance</span>
-                </button>
-                <button
-                  onClick={handleBulkAttendance}
-                  disabled={bulkCreateAttendanceMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50"
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  <span>Bulk Mark Present</span>
-                </button>
+            <div className="flex items-center space-x-4">
+              
+              <div className="flex items-center space-x-2">
+                
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
               </div>
             </div>
 
             {/* Attendance Table */}
             {attendanceLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-                <span className="ml-2 text-gray-600">Loading attendance...</span>
+              <div className="flex flex-col h-full">
+                <div className="flex-1 p-6 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading attendance...</p>
+                  </div>
+                </div>
               </div>
             ) : (
+              <div className="w-full">
+                {attendanceData?.attendance && attendanceData.attendance.length > 0 ? (
               <div className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                      <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Staff</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Date</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Status</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Check In</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Check Out</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Notes</th>
-                        <th className="text-left py-4 px-6 font-medium text-gray-900">Actions</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check In</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check Out</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {attendanceData?.attendance && attendanceData.attendance.length > 0 ? (
-                        attendanceData.attendance.map((record) => (
-                          <tr key={record.id} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-4 px-6">
-                              <div className="flex items-center space-x-3">
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {attendanceData.attendance.map((record) => (
+                            <tr key={record.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
                                 <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                                   <User className="h-5 w-5 text-gray-400" />
                                 </div>
-                                <div>
-                                  <div className="font-medium text-gray-900">
+                                  <div className="ml-4">
+                                    <div className="text-sm font-medium text-gray-900">
                                     {record.staff?.user?.fullName || 'N/A'}
                                   </div>
                                   <div className="text-sm text-gray-500">
@@ -551,37 +586,45 @@ export default function StaffPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="py-4 px-6 text-sm text-gray-600">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
                               {new Date(record.date).toLocaleDateString()}
+                                </div>
                             </td>
-                            <td className="py-4 px-6">
+                              <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
                                 {getStatusIcon(record.status)}
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>
                                   {record.status}
                                 </span>
                               </div>
                             </td>
-                            <td className="py-4 px-6 text-sm text-gray-600">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
                               {record.checkIn ? new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                </div>
                             </td>
-                            <td className="py-4 px-6 text-sm text-gray-600">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
                               {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                </div>
                             </td>
-                            <td className="py-4 px-6 text-sm text-gray-600">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-900">
                               {record.notes || 'N/A'}
+                                </div>
                             </td>
-                            <td className="py-4 px-6">
-                              <div className="flex items-center space-x-2">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex space-x-2">
                                 <button 
-                                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                                    className="text-blue-600 hover:text-blue-900"
                                   onClick={() => handleEditAttendance(record)}
                                   title="Edit Attendance"
                                 >
                                   <Edit className="h-4 w-4" />
                                 </button>
                                 <button 
-                                  className="p-1 text-red-400 hover:text-red-600 transition-colors duration-200"
+                                    className="text-red-600 hover:text-red-900"
                                   onClick={() => handleDeleteAttendance(record.id)}
                                   title="Delete Attendance"
                                   disabled={deleteAttendanceMutation.isPending}
@@ -591,17 +634,22 @@ export default function StaffPage() {
                               </div>
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={7} className="py-8 px-6 text-center text-gray-500">
-                            No attendance records found for {new Date(selectedDate).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      )}
+                          ))}
                     </tbody>
                   </table>
                 </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <Clock className="h-16 w-16 mx-auto" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No attendance records found</h3>
+                    <p className="text-gray-600">
+                      No attendance records found for this date. Click "Add Attendance" to create one.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -611,8 +659,8 @@ export default function StaffPage() {
       {/* Add Staff Modal */}
       {showAddStaff && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 {editingStaff ? "Edit Staff" : "Add Staff"}
               </h3>
@@ -620,7 +668,7 @@ export default function StaffPage() {
                 onClick={() => setShowAddStaff(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             
@@ -802,49 +850,28 @@ export default function StaffPage() {
                   />
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
+                    disabled={createStaffMutation.isPending || updateStaffMutation.isPending}
+                  >
+                    {createStaffMutation.isPending || updateStaffMutation.isPending ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <span>{editingStaff ? 'Update' : 'Create'}</span>
+                    )}
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       setShowAddStaff(false);
                       resetForm();
                     }}
-                    className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                    className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
                   >
                     Cancel
                   </button>
-                  
-                  {editingStaff ? (
-                    <button
-                      type="submit"
-                      disabled={updateStaffMutation.isPending}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
-                    >
-                      {updateStaffMutation.isPending ? (
-                        <div className="flex items-center space-x-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Updating...</span>
-                        </div>
-                      ) : (
-                        "Update Staff"
-                      )}
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={createStaffMutation.isPending}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
-                    >
-                      {createStaffMutation.isPending ? (
-                        <div className="flex items-center space-x-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Creating...</span>
-                        </div>
-                      ) : (
-                        "Add Staff"
-                      )}
-                    </button>
-                  )}
                 </div>
               </div>
             </form>
@@ -921,7 +948,7 @@ export default function StaffPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Check In</label>
                   <input
-                    type="datetime-local"
+                    type="time"
                     name="checkIn"
                     value={attendanceFormData.checkIn}
                     onChange={handleAttendanceInputChange}
@@ -931,7 +958,7 @@ export default function StaffPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Check Out</label>
                   <input
-                    type="datetime-local"
+                    type="time"
                     name="checkOut"
                     value={attendanceFormData.checkOut}
                     onChange={handleAttendanceInputChange}
@@ -952,56 +979,35 @@ export default function StaffPage() {
                 />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
+                  disabled={createAttendanceMutation.isPending || updateAttendanceMutation.isPending}
+                >
+                  {createAttendanceMutation.isPending || updateAttendanceMutation.isPending ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <span>{editingAttendance ? 'Update' : 'Create'}</span>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setShowAttendanceModal(false);
                     resetAttendanceForm();
                   }}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
                 >
                   Cancel
                 </button>
-                
-                {editingAttendance ? (
-                  <button
-                    type="submit"
-                    disabled={updateAttendanceMutation.isPending}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
-                  >
-                    {updateAttendanceMutation.isPending ? (
-                      <div className="flex items-center space-x-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Updating...</span>
-                      </div>
-                    ) : (
-                      "Update Attendance"
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={createAttendanceMutation.isPending}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
-                  >
-                    {createAttendanceMutation.isPending ? (
-                      <div className="flex items-center space-x-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Creating...</span>
-                      </div>
-                    ) : (
-                      "Create Attendance"
-                    )}
-                  </button>
-                )}
               </div>
             </form>
           </div>
         </div>
       )}
       
-      <DevelopmentNotice />
+      {/* <DevelopmentNotice /> */}
     </div>
   );
 }

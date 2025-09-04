@@ -136,8 +136,8 @@ CREATE TABLE public.orders (
   readyAt timestamp without time zone,
   updatedAt timestamp without time zone NOT NULL,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
-  CONSTRAINT orders_tableId_fkey FOREIGN KEY (tableId) REFERENCES public.tables(id),
-  CONSTRAINT orders_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id)
+  CONSTRAINT orders_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id),
+  CONSTRAINT orders_tableId_fkey FOREIGN KEY (tableId) REFERENCES public.tables(id)
 );
 CREATE TABLE public.product_extras (
   id text NOT NULL,
@@ -149,8 +149,19 @@ CREATE TABLE public.product_extras (
   createdAt timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt timestamp without time zone NOT NULL,
   CONSTRAINT product_extras_pkey PRIMARY KEY (id),
-  CONSTRAINT product_extras_stockItemId_fkey FOREIGN KEY (stockItemId) REFERENCES public.stock_items(id),
-  CONSTRAINT product_extras_productId_fkey FOREIGN KEY (productId) REFERENCES public.products(id)
+  CONSTRAINT product_extras_productId_fkey FOREIGN KEY (productId) REFERENCES public.products(id),
+  CONSTRAINT product_extras_stockItemId_fkey FOREIGN KEY (stockItemId) REFERENCES public.stock_items(id)
+);
+CREATE TABLE public.product_variants (
+  id text NOT NULL,
+  productId text NOT NULL,
+  name text NOT NULL,
+  price double precision NOT NULL DEFAULT 0.0,
+  isActive boolean NOT NULL DEFAULT true,
+  createdAt timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  updatedAt timestamp without time zone,
+  CONSTRAINT product_variants_pkey PRIMARY KEY (id),
+  CONSTRAINT product_variants_productId_fkey FOREIGN KEY (productId) REFERENCES public.products(id)
 );
 CREATE TABLE public.products (
   id text NOT NULL,
@@ -215,9 +226,9 @@ CREATE TABLE public.refunds (
   createdAt timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt timestamp without time zone NOT NULL,
   CONSTRAINT refunds_pkey PRIMARY KEY (id),
-  CONSTRAINT refunds_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id),
   CONSTRAINT refunds_cashierId_fkey FOREIGN KEY (cashierId) REFERENCES public.users(id),
   CONSTRAINT refunds_transactionId_fkey FOREIGN KEY (transactionId) REFERENCES public.transactions(id),
+  CONSTRAINT refunds_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id),
   CONSTRAINT refunds_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id)
 );
 CREATE TABLE public.reservations (
@@ -236,8 +247,8 @@ CREATE TABLE public.reservations (
   createdAt timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt timestamp without time zone NOT NULL,
   CONSTRAINT reservations_pkey PRIMARY KEY (id),
-  CONSTRAINT reservations_tableId_fkey FOREIGN KEY (tableId) REFERENCES public.tables(id),
-  CONSTRAINT reservations_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id)
+  CONSTRAINT reservations_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id),
+  CONSTRAINT reservations_tableId_fkey FOREIGN KEY (tableId) REFERENCES public.tables(id)
 );
 CREATE TABLE public.sessions (
   id text NOT NULL,
@@ -345,9 +356,9 @@ CREATE TABLE public.transactions (
   createdAt timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt timestamp without time zone NOT NULL,
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT transactions_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id),
   CONSTRAINT transactions_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id),
-  CONSTRAINT transactions_cashierId_fkey FOREIGN KEY (cashierId) REFERENCES public.users(id),
-  CONSTRAINT transactions_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id)
+  CONSTRAINT transactions_cashierId_fkey FOREIGN KEY (cashierId) REFERENCES public.users(id)
 );
 CREATE TABLE public.users (
   id text NOT NULL,

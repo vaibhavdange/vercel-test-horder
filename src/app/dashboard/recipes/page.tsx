@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Eye, Package, Grid3X3, List, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Package, Grid3X3, List, Search, X } from 'lucide-react';
 import { useRecipes, useCreateRecipe, useUpdateRecipe, useDeleteRecipe, Recipe, CreateRecipeData, UpdateRecipeData } from '@/hooks/use-recipes';
 import { useProducts } from '@/hooks/use-products';
 import { useStockItems } from '@/hooks/use-ingredients';
 import { useHighlight } from '@/hooks/use-highlight';
 import { useCurrency } from '@/hooks/useCurrency';
-import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 
 export default function RecipesPage() {
   const [showAddRecipe, setShowAddRecipe] = useState(false);
@@ -179,41 +178,48 @@ export default function RecipesPage() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
       {/* Header */}
-      
-      <div className="max-w-[1440px] mx-auto px-6 py-8">
-        {/* Search, Add Recipe, and View Toggle Bar */}
-        <div className="flex justify-between items-center mb-6">
-          {/* Left side: Search and Add Recipe */}
-          <div className="flex items-center space-x-4 flex-1">
-            {/* Search Bar */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-2 flex-1 max-w-md">
-              <Search className="h-5 w-5 text-gray-500 mr-2" />
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-gray-900">Recipes</h1>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowAddRecipe(true);
+                  setEditingRecipe(null);
+                }}
+                className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap shrink-0 text-sm font-medium"
+                title="Add New Recipe"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Recipe</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Search and Filters Row */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+          {/* Search */}
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search recipes by name, description, or menu item..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent outline-none flex-1"
+                placeholder="Search recipes by name, description, or menu item..."
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
             </div>
-            
-            {/* Add New Recipe Button */}
-            <button
-              onClick={() => {
-                resetForm();
-                setShowAddRecipe(true);
-                setEditingRecipe(null);
-              }}
-              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center whitespace-nowrap"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add New Recipe
-            </button>
           </div>
 
-          {/* Right side: View Toggle */}
+          {/* View Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('grid')}
@@ -248,13 +254,26 @@ export default function RecipesPage() {
         )}
 
         {/* Recipe List */}
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredRecipes.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Package className="h-16 w-16 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No recipes found</h3>
+            <p className="text-gray-600">
+              {searchQuery
+                ? "Try adjusting your search"
+                : "Add your first recipe to get started"
+              }
+            </p>
+          </div>
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredRecipes.map((recipe) => (
               <div 
                 key={recipe.id} 
                 id={`recipe-${recipe.id}`}
-                className="bg-white rounded-lg shadow-md border border-gray-200 p-6"
+                className="bg-white rounded-xl p-4 shadow-soft border border-gray-100 hover:shadow-medium transition-shadow duration-200"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -264,24 +283,24 @@ export default function RecipesPage() {
                       <p className="text-gray-500 text-sm mt-1">{recipe.description}</p>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-1">
                     <button
                       onClick={() => setViewingRecipe(recipe)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
                       title="View Recipe"
                     >
                       <Eye className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleEdit(recipe)}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
                       title="Edit Recipe"
                     >
                       <Edit className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(recipe.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
                       title="Delete Recipe"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -318,7 +337,7 @@ export default function RecipesPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -391,7 +410,7 @@ export default function RecipesPage() {
                           </button>
                           <button
                             onClick={() => handleEdit(recipe)}
-                            className="text-green-600 hover:text-green-900"
+                            className="text-blue-600 hover:text-blue-900"
                             title="Edit Recipe"
                           >
                             <Edit className="h-4 w-4" />
@@ -417,19 +436,19 @@ export default function RecipesPage() {
         {showAddRecipe && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
                   {editingRecipe ? 'Edit Recipe' : 'Add New Recipe'}
-                </h2>
+                </h3>
                 <button
                   onClick={() => {
                     setShowAddRecipe(false);
                     setEditingRecipe(null);
                     resetForm();
                   }}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  ×
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
@@ -443,7 +462,7 @@ export default function RecipesPage() {
                       type="text"
                       value={recipeForm.name}
                       onChange={(e) => setRecipeForm(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       required
                     />
                   </div>
@@ -455,7 +474,7 @@ export default function RecipesPage() {
                     <select
                       value={recipeForm.productId}
                       onChange={(e) => setRecipeForm(prev => ({ ...prev, productId: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       required
                     >
                       <option value="">Select a menu item</option>
@@ -475,7 +494,7 @@ export default function RecipesPage() {
                       type="text"
                       value={recipeForm.description}
                       onChange={(e) => setRecipeForm(prev => ({ ...prev, description: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     />
                   </div>
 
@@ -487,7 +506,7 @@ export default function RecipesPage() {
                       type="number"
                       value={recipeForm.servings}
                       onChange={(e) => setRecipeForm(prev => ({ ...prev, servings: parseInt(e.target.value) || 1 }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       min="1"
                       required
                     />
@@ -575,7 +594,18 @@ export default function RecipesPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
+                    disabled={createRecipeMutation.isPending || updateRecipeMutation.isPending}
+                  >
+                    {createRecipeMutation.isPending || updateRecipeMutation.isPending ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <span>{editingRecipe ? 'Update' : 'Create'}</span>
+                    )}
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -583,21 +613,9 @@ export default function RecipesPage() {
                       setEditingRecipe(null);
                       resetForm();
                     }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
                   >
                     Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createRecipeMutation.isPending || updateRecipeMutation.isPending}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
-                  >
-                    {createRecipeMutation.isPending || updateRecipeMutation.isPending
-                      ? 'Saving...'
-                      : editingRecipe
-                      ? 'Update Recipe'
-                      : 'Create Recipe'
-                    }
                   </button>
                 </div>
               </form>
@@ -609,13 +627,13 @@ export default function RecipesPage() {
         {viewingRecipe && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">{viewingRecipe.name}</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">{viewingRecipe.name}</h3>
                 <button
                   onClick={() => setViewingRecipe(null)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  ×
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
@@ -675,8 +693,6 @@ export default function RecipesPage() {
           </div>
         )}
       </div>
-      
-      <DevelopmentNotice />
     </div>
   );
 }

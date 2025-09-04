@@ -1015,22 +1015,36 @@ export class SupabaseDatabase {
     try {
       const { data, error } = await this.client
         .from('staff')
-        .select('*')
-        .order('name', { ascending: true });
+        .select(`
+          *,
+          users (*)
+        `)
+        .order('createdAt', { ascending: false });
 
       if (error) throw error;
-      return data;
+      
+      // Transform the data to match frontend expectations
+      const transformedData = (data || []).map((staff: any) => ({
+        ...staff,
+        user: staff.users,
+        // Remove the plural version to avoid confusion
+        users: undefined
+      }));
+      
+      return transformedData;
     } catch (error) {
       handleDatabaseError(error, 'fetch staff');
     }
   }
 
-  // Settings
+  // Settings - Column-based approach
   async getSettings() {
     try {
       const { data, error } = await this.client
         .from('settings')
-        .select('*');
+        .select('*')
+        .eq('id', 'default_settings')
+        .single();
 
       if (error) throw error;
       return data;
@@ -1047,6 +1061,7 @@ export class SupabaseDatabase {
           ...updates,
           updatedAt: new Date().toISOString(),
         })
+        .eq('id', 'default_settings')
         .select()
         .single();
 
@@ -1054,6 +1069,98 @@ export class SupabaseDatabase {
       return data;
     } catch (error) {
       handleDatabaseError(error, 'update settings');
+    }
+  }
+
+  // Restaurant Settings - Specific methods for restaurant configuration
+  async getRestaurantSettings() {
+    try {
+      const { data, error } = await this.client
+        .from('settings')
+        .select(`
+          restaurantname,
+          restaurantid,
+          storeid,
+          addresslineone,
+          addresslinetwo,
+          restaurantcity,
+          restaurantpin,
+          restaurantphone,
+          restaurantemail,
+          restaurantwebsite,
+          restaurantgstrate,
+          restaurantgst,
+          restauranttaxid,
+          restaurantfssai,
+          restaurantpolicy,
+          restaurantfooternote,
+          restaurantfooternoteextra,
+          updated_at
+        `)
+        .eq('id', 'default_settings')
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleDatabaseError(error, 'fetch restaurant settings');
+    }
+  }
+
+  async updateRestaurantSettings(updates: {
+    restaurantName?: string;
+    restaurantID?: string;
+    storeID?: string;
+    addressLineOne?: string;
+    addressLineTwo?: string;
+    restaurantCity?: string;
+    restaurantPin?: string;
+    restaurantPhone?: string;
+    restaurantEmail?: string;
+    restaurantWebsite?: string;
+    restaurantGstRate?: number;
+    restaurantGst?: string;
+    restaurantTaxId?: string;
+    restaurantFssai?: string;
+    restaurantPolicy?: string;
+    restaurantFooterNote?: string;
+    restaurantFooterNoteExtra?: string;
+  }) {
+    try {
+      // Map camelCase to snake_case for database
+      const dbUpdates: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updates.restaurantName !== undefined) dbUpdates.restaurantname = updates.restaurantName;
+      if (updates.restaurantID !== undefined) dbUpdates.restaurantid = updates.restaurantID;
+      if (updates.storeID !== undefined) dbUpdates.storeid = updates.storeID;
+      if (updates.addressLineOne !== undefined) dbUpdates.addresslineone = updates.addressLineOne;
+      if (updates.addressLineTwo !== undefined) dbUpdates.addresslinetwo = updates.addressLineTwo;
+      if (updates.restaurantCity !== undefined) dbUpdates.restaurantcity = updates.restaurantCity;
+      if (updates.restaurantPin !== undefined) dbUpdates.restaurantpin = updates.restaurantPin;
+      if (updates.restaurantPhone !== undefined) dbUpdates.restaurantphone = updates.restaurantPhone;
+      if (updates.restaurantEmail !== undefined) dbUpdates.restaurantemail = updates.restaurantEmail;
+      if (updates.restaurantWebsite !== undefined) dbUpdates.restaurantwebsite = updates.restaurantWebsite;
+      if (updates.restaurantGstRate !== undefined) dbUpdates.restaurantgstrate = updates.restaurantGstRate;
+      if (updates.restaurantGst !== undefined) dbUpdates.restaurantgst = updates.restaurantGst;
+      if (updates.restaurantTaxId !== undefined) dbUpdates.restauranttaxid = updates.restaurantTaxId;
+      if (updates.restaurantFssai !== undefined) dbUpdates.restaurantfssai = updates.restaurantFssai;
+      if (updates.restaurantPolicy !== undefined) dbUpdates.restaurantpolicy = updates.restaurantPolicy;
+      if (updates.restaurantFooterNote !== undefined) dbUpdates.restaurantfooternote = updates.restaurantFooterNote;
+      if (updates.restaurantFooterNoteExtra !== undefined) dbUpdates.restaurantfooternoteextra = updates.restaurantFooterNoteExtra;
+
+      const { data, error } = await this.client
+        .from('settings')
+        .update(dbUpdates)
+        .eq('id', 'default_settings')
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      handleDatabaseError(error, 'update restaurant settings');
     }
   }
 

@@ -14,6 +14,7 @@ import MenuSearchBar from "@/components/orders/MenuSearchBar";
 import { OptimizedImage } from "@/components/ui/OptimizedImage";
 import { Category as ApiCategory } from "@/types/category";
 import { useBillingSettings } from "@/hooks/use-billing-settings";
+import { useBusinessModel, useOrderCalculations } from "@/hooks";
 import { supabaseDb } from '@/lib/database/supabase';
 import PaymentDrawer from "@/components/ui/PaymentDrawer";
 import OrderConfirmationMessage from "@/components/ui/OrderConfirmationMessage";
@@ -69,6 +70,7 @@ export default function NewOrderPage() {
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [activeField, setActiveField] = useState<'phone' | 'name' | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -82,6 +84,7 @@ export default function NewOrderPage() {
   const customerPhoneRef = useRef<HTMLInputElement>(null);
   const phoneSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSettingCustomerProgrammatically = useRef<boolean>(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   // Router for navigation
   const router = useRouter();
@@ -133,6 +136,15 @@ export default function NewOrderPage() {
   const { data: billingSettings = [] } = useBillingSettings();
   const orderButtonAction = billingSettings.find(setting => setting.key === "order_button_action")?.value || "create_order";
 
+  // Business model detection and unified calculations
+  const businessModel = useBusinessModel();
+  const calculations = useOrderCalculations({
+    orderItems,
+    products: allProducts,
+    businessModel: businessModel.businessModel,
+    orderType: orderType || 'dine-in'
+  });
+
   // Customer search and creation
   const { data: customerSearchResults = [] } = useSearchCustomers(customerName);
   const { data: existingCustomer, isFetching: isFetchingCustomer = false } = useCustomerByPhone(customerPhone);
@@ -140,59 +152,62 @@ export default function NewOrderPage() {
   const createOrderOptimistic = useCreateOrderOptimistic();
   const updateOrder = useUpdateOrder();
 
+  // Outside click handler (close dropdown only if click is truly outside the whole block)
+  useEffect(() => {
+    const handleDocMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!rootRef.current?.contains(target)) {
+        setShowCustomerSuggestions(false);
+      }
+    };
+
+    if (showCustomerSuggestions) {
+      document.addEventListener('mousedown', handleDocMouseDown);
+      return () => document.removeEventListener('mousedown', handleDocMouseDown);
+    }
+  }, [showCustomerSuggestions]);
+
   // Auto-save customer when name is entered
   const handleCustomerNameChange = async (name: string) => {
     setCustomerName(name);
+    setActiveField('name');
     
-    // Only search and clear customer ID if this is manual user input, not programmatic
-    if (!isSettingCustomerProgrammatically.current) {
-      if (name.length >= 2) {
-        // Show suggestions for existing customers
-        const suggestions = await searchCustomersByName(name);
-        setCustomerSuggestions(suggestions);
-        setShowCustomerSuggestions(true);
-      } else {
-        setShowCustomerSuggestions(false);
-        setCustomerSuggestions([]);
-      }
-      
-      // Clear customer ID if name is changed manually
-      if (customerId) {
-        setCustomerId(undefined);
-      }
+    // Skip API call if this was set programmatically
+    if (isSettingCustomerProgrammatically.current) return;
+
+    if (!name.trim()) {
+      setCustomerSuggestions([]);
+      setShowCustomerSuggestions(false);
+      return;
+    }
+
+    const results = await searchCustomersByName(name);
+    setCustomerSuggestions(results);
+    setShowCustomerSuggestions(results.length > 0);
+    
+    // Clear customer ID if name is changed manually
+    if (customerId) {
+      setCustomerId(undefined);
     }
   };
 
   // Auto-find customer when phone is entered
   const handleCustomerPhoneChange = async (phone: string) => {
     setCustomerPhone(phone);
+    setActiveField('phone');
     
-    // Only clear customer ID and search if this is manual user input, not programmatic
-    if (!isSettingCustomerProgrammatically.current) {
-      // Clear customer ID when phone is changed manually
-      if (customerId) {
-        setCustomerId(undefined);
-      }
-      
-      // Clear suggestions immediately when typing
-      setShowCustomerSuggestions(false);
+    // Skip API call if this was set programmatically
+    if (isSettingCustomerProgrammatically.current) return;
+
+    if (!phone.trim()) {
       setCustomerSuggestions([]);
-      
-      // Clear any existing timeout
-      if (phoneSearchTimeoutRef.current) {
-        clearTimeout(phoneSearchTimeoutRef.current);
-      }
-      
-      // Only search if phone number is at least 3 digits and add a small delay
-      if (phone.length >= 3) {
-        // Add a small delay to prevent rapid searches while typing
-        phoneSearchTimeoutRef.current = setTimeout(async () => {
-          const suggestions = await searchCustomersByPhone(phone);
-          setCustomerSuggestions(suggestions);
-          setShowCustomerSuggestions(true);
-        }, 500); // 500ms delay
-      }
+      setShowCustomerSuggestions(false);
+      return;
     }
+
+    const results = await searchCustomersByPhone(phone);
+    setCustomerSuggestions(results);
+    setShowCustomerSuggestions(results.length > 0);
   };
 
   // Check for order amendment data on page load
@@ -335,32 +350,39 @@ export default function NewOrderPage() {
 
   // Select customer from suggestions
   const selectCustomerFromSuggestions = (customer: Customer) => {
-    // Set flag to indicate we're programmatically setting customer data
     isSettingCustomerProgrammatically.current = true;
-    
-    setCustomerName(customer.name);
+
+    setCustomerName(customer.name || "");
     setCustomerPhone(customer.phone || "");
     setCustomerId(customer.id);
-    setShowCustomerSuggestions(false);
     setCustomerSuggestions([]);
-    
-    // Reset the flag after a brief delay to allow state updates to complete
+    setShowCustomerSuggestions(false);
+
+    // Allow handlers to run after values are set, but without triggering API calls
     setTimeout(() => {
       isSettingCustomerProgrammatically.current = false;
-    }, 100);
-    
-    // Show a brief success message
-    const successMsg = document.createElement('div');
-    successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-    successMsg.textContent = `Customer "${customer.name}" selected!`;
-    document.body.appendChild(successMsg);
-    
-    setTimeout(() => {
-      if (document.body.contains(successMsg)) {
-        document.body.removeChild(successMsg);
-      }
-    }, 2000);
+    }, 0);
   };
+
+  // Reusable dropdown
+  const SuggestionList = () => (
+    <div className="customer-suggestions absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-soft max-h-40 overflow-y-auto">
+      {customerSuggestions.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          onClick={() => selectCustomerFromSuggestions(c)}
+          className="w-full text-left p-2 hover:bg-gray-100 flex items-center justify-between"
+        >
+          <div>
+            <p className="font-medium text-gray-900">{c.name}</p>
+            <p className="text-sm text-gray-600">{c.phone || 'No phone'}</p>
+          </div>
+          <UserPlus className="h-4 w-4 text-green-600" />
+        </button>
+      ))}
+    </div>
+  );
 
   // Auto-create customer when order is submitted (if new customer)
   const ensureCustomerExists = async (): Promise<string | undefined> => {
@@ -486,33 +508,11 @@ export default function NewOrderPage() {
     setOrderItems(newCart);
   };
 
-  const getSubtotal = (): number => {
-    return orderItems.reduce((sum: number, item: CartItem) => sum + item.totalPrice, 0);
-  };
-
-  const getTax = (): number => {
-    // Use product-specific tax rates if available, otherwise use default
-    const totalTax = orderItems.reduce((sum: number, item: CartItem) => {
-      const product = products.find(p => p.id === item.productId);
-      const taxRate = product?.taxRate || 0;
-      return sum + (item.totalPrice * (taxRate / 100));
-    }, 0);
-    return totalTax;
-  };
-
-  const getServiceCharge = (): number => {
-    // Use product-specific service charge rates if available, otherwise use default
-    const totalServiceCharge = orderItems.reduce((sum: number, item: CartItem) => {
-      const product = products.find(p => p.id === item.productId);
-      const serviceChargeRate = product?.serviceChargeRate || 0;
-      return sum + (item.totalPrice * (serviceChargeRate / 100));
-    }, 0);
-    return totalServiceCharge;
-  };
-
-  const getTotal = (): number => {
-    return getSubtotal() + getTax() + getServiceCharge();
-  };
+  // Legacy functions for backward compatibility - now use calculations from hook
+  const getSubtotal = (): number => calculations.subtotal;
+  const getTax = (): number => calculations.taxAmount;
+  const getServiceCharge = (): number => calculations.serviceChargeAmount;
+  const getTotal = (): number => calculations.totalPayable;
 
   const handleOrderTypeSelect = (type: "dine-in" | "takeaway") => {
     setOrderType(type);
@@ -1033,7 +1033,7 @@ export default function NewOrderPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div ref={rootRef} className="flex flex-col h-full">
 
       <div className="flex-1 min-w-0 flex overflow-hidden">
         {/* Mobile Sidebar Toggle Button - Only visible on mobile */}
@@ -1053,9 +1053,13 @@ export default function NewOrderPage() {
         <div className="min-w-0 flex-1 flex flex-col px-6 pt-4 pb-6 overflow-y-auto md:mr-0">
           {/* Order Type Selection - Moved to right sidebar */}
 
-          {/* Categories Section */}
+          {/* Categories Section Header */}
+          <div className="mb-6">
+            <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900">Categories</h2>
+          </div>
+
+          {/* Categories Container */}
           <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100 mb-6">
-            <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900 mb-4">Categories</h2>
             {categoriesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-green-600" />
@@ -1111,19 +1115,25 @@ export default function NewOrderPage() {
             )}
           </div>
 
-          {/* Menu Items Section */}
-          <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
-            <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900 mb-4">Menu Items</h2>
+          {/* Menu Items Section Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900">Menu Items</h2>
             
-            {/* Search Bar - Embedded in menu items container */}
-            <div className="mb-6">
-              <MenuSearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                resultsCount={searchFilteredItems.length}
-                activeCategoryName={activeCategory !== "All" ? (categories.find((cat: ApiCategory) => cat.id === activeCategory)?.name || 'Category') : undefined}
-              />
+            {/* Search Bar - Positioned on the extreme right */}
+            <div className="w-96 max-w-md">
+              <div className="[&>div]:py-0 [&_input]:w-full">
+                <MenuSearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  resultsCount={searchFilteredItems.length}
+                  activeCategoryName={activeCategory !== "All" ? (categories.find((cat: ApiCategory) => cat.id === activeCategory)?.name || 'Category') : undefined}
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Menu Items Container */}
+          <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
             {productsLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-green-600" />
@@ -1243,15 +1253,6 @@ export default function NewOrderPage() {
         <div className={`fixed min-[801px]:relative inset-y-0 right-0 z-30 w-96 bg-white border-l border-gray-200 flex flex-col transform transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : 'translate-x-full min-[801px]:translate-x-0'
         }`}>
-          {/* Mobile Close Button - Only visible on mobile */}
-          <div className="min-[801px]:hidden flex justify-end p-4 border-b border-gray-200">
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors duration-200"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
 
           {/* Order Type Selection - Compact */}
           {!orderType && (
@@ -1321,7 +1322,7 @@ export default function NewOrderPage() {
           )}
 
           {/* Order Summary Header */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center px-6 border-b border-gray-200" style={{ height: '47px' }}>
             <h2 className="text-lg font-bold text-gray-900">Order Summary</h2>
           </div>
 
@@ -1423,23 +1424,58 @@ export default function NewOrderPage() {
           <div className="p-6 border-t border-gray-200 bg-gray-50">
             {orderItems.length > 0 && (
               <div className="space-y-3 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span className="font-medium">{format(getSubtotal())}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Tax:</span>
-                  <span className="font-medium">{format(getTax())}</span>
-                </div>
-                {getServiceCharge() > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Service Charge:</span>
-                    <span className="font-medium">{format(getServiceCharge())}</span>
-                  </div>
+                {/* Dynamic display based on business model */}
+                {businessModel.businessModel === 'COUNTER_SERVICE' && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="font-medium">{format(calculations.subtotal)}</span>
+                    </div>
+                    {calculations.taxAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Tax:</span>
+                        <span className="font-medium">{format(calculations.taxAmount)}</span>
+                      </div>
+                    )}
+                    {calculations.serviceChargeAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Service Charge:</span>
+                        <span className="font-medium">{format(calculations.serviceChargeAmount)}</span>
+                      </div>
+                    )}
+                  </>
                 )}
+                
+                {businessModel.businessModel === 'FINE_DINE' && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Running Total:</span>
+                      <span className="font-medium">{format(calculations.subtotal)}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 italic">
+                      {calculations.displayNote}
+                    </div>
+                  </>
+                )}
+                
+                {businessModel.businessModel === 'NO_TAX' && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="font-medium">{format(calculations.subtotal)}</span>
+                    </div>
+                    {calculations.serviceChargeAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Service Charge:</span>
+                        <span className="font-medium">{format(calculations.serviceChargeAmount)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                
                 <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
                   <span>Total:</span>
-                  <span className="text-green-600">{format(getTotal())}</span>
+                  <span className="text-green-600">{format(calculations.totalPayable)}</span>
                 </div>
               </div>
             )}
@@ -1547,13 +1583,13 @@ export default function NewOrderPage() {
                           ))}
                         </select>
                         {availableTables.length === 0 && !tablesLoading && (
-                          <p className="mt-1 text-sm text-orange-600">No available tables found. Please check table status or add more tables.</p>
+                          <p className="mt-1 text-sm text-orange-600">No available tables found. Please check table status.</p>
                         )}
                       </>
                     )}
                   </div>
 
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Customer Phone</label>
                     <input
                       type="text"
@@ -1564,12 +1600,13 @@ export default function NewOrderPage() {
                     />
                     {existingCustomer && customerPhone && (
                       <p className="mt-1 text-sm text-black">
-                        Customer "{existingCustomer.name}" exists with this phone number
+                        {existingCustomer.name} is an existing customer
                       </p>
                     )}
+                    {showCustomerSuggestions && activeField === 'phone' && <SuggestionList />}
                   </div>
 
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name</label>
                     <input
                       type="text"
@@ -1578,31 +1615,7 @@ export default function NewOrderPage() {
                       placeholder="Enter customer name"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     />
-                    {showCustomerSuggestions && customerSuggestions.length > 0 && (
-                      <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-soft max-h-40 overflow-y-auto">
-                        {customerSuggestions.map((customer) => (
-                          <div
-                            key={customer.id}
-                            onClick={() => selectCustomerFromSuggestions(customer)}
-                            className="p-2 cursor-pointer hover:bg-gray-100 flex items-center justify-between"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-900">{customer.name}</p>
-                              <p className="text-sm text-gray-600">{customer.phone || "No phone"}</p>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent selecting the customer
-                                selectCustomerFromSuggestions(customer);
-                              }}
-                              className="text-green-600 hover:text-green-800"
-                            >
-                              <UserPlus className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {showCustomerSuggestions && activeField === 'name' && <SuggestionList />}
                   </div>
                   {/* Customer suggestions appear automatically when typing */}
                 </>
@@ -1610,7 +1623,7 @@ export default function NewOrderPage() {
 
               {orderType === "takeaway" && (
                 <>
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Customer Phone</label>
                     <input
                       type="text"
@@ -1621,12 +1634,13 @@ export default function NewOrderPage() {
                     />
                     {existingCustomer && customerPhone && (
                       <p className="mt-1 text-sm text-black">
-                        Customer "{existingCustomer.name}" exists with this phone number
+                        {existingCustomer.name} is an existing customer
                       </p>
                     )}
+                    {showCustomerSuggestions && activeField === 'phone' && <SuggestionList />}
                   </div>
 
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name</label>
                     <input
                       type="text"
@@ -1635,31 +1649,7 @@ export default function NewOrderPage() {
                       placeholder="Enter customer name"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     />
-                    {showCustomerSuggestions && customerSuggestions.length > 0 && (
-                      <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-soft max-h-40 overflow-y-auto">
-                        {customerSuggestions.map((customer) => (
-                          <div
-                            key={customer.id}
-                            onClick={() => selectCustomerFromSuggestions(customer)}
-                            className="p-2 cursor-pointer hover:bg-gray-100 flex items-center justify-between"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-900">{customer.name}</p>
-                              <p className="text-sm text-gray-600">{customer.phone || "No phone"}</p>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent selecting the customer
-                                selectCustomerFromSuggestions(customer);
-                              }}
-                              className="text-green-600 hover:text-green-800"
-                            >
-                              <UserPlus className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {showCustomerSuggestions && activeField === 'name' && <SuggestionList />}
                   </div>
                   {/* Customer suggestions appear automatically when typing */}
                 </>

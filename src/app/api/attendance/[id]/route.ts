@@ -8,8 +8,14 @@ export async function GET(
   try {
     const supabase = supabaseDb['client'];
     const { data: attendance, error } = await supabase
-      .from('attendance')
-      .select('*')
+      .from('staff_attendance')
+      .select(`
+        *,
+        staff (
+          *,
+          users (*)
+        )
+      `)
       .eq('id', params.id)
       .single();
 
@@ -20,7 +26,16 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(attendance);
+    // Transform the data to match frontend expectations
+    const transformedAttendance = {
+      ...attendance,
+      staff: attendance.staff ? {
+        ...attendance.staff,
+        user: attendance.staff.users
+      } : undefined
+    };
+
+    return NextResponse.json(transformedAttendance);
   } catch (error) {
     console.error("Failed to fetch attendance record:", error);
     return NextResponse.json(
@@ -36,26 +51,56 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { type, timestamp } = body;
+    console.log("Received attendance update data:", body);
+    const { status, checkIn, checkOut, notes } = body;
+
+    if (!status) {
+      return NextResponse.json(
+        { error: "Status is required" },
+        { status: 400 }
+      );
+    }
 
     const supabase = supabaseDb['client'];
     const { data: attendance, error } = await supabase
-      .from('attendance')
+      .from('staff_attendance')
       .update({
-        type,
-        timestamp: timestamp || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status,
+        checkIn: checkIn || null,
+        checkOut: checkOut || null,
+        notes: notes || null,
+        updatedAt: new Date().toISOString(),
       })
       .eq('id', params.id)
-      .select()
+      .select(`
+        *,
+        staff (
+          *,
+          users (*)
+        )
+      `)
       .single();
 
-    if (error) throw error;
-    return NextResponse.json(attendance);
+    if (error) {
+      console.error("Supabase error:", error);
+      throw error;
+    }
+
+    // Transform the data to match frontend expectations
+    const transformedAttendance = {
+      ...attendance,
+      staff: attendance.staff ? {
+        ...attendance.staff,
+        user: attendance.staff.users
+      } : undefined
+    };
+
+    console.log("Updated attendance record:", transformedAttendance);
+    return NextResponse.json(transformedAttendance);
   } catch (error) {
     console.error("Failed to update attendance record:", error);
     return NextResponse.json(
-      { error: "Failed to update attendance record" },
+      { error: `Failed to update attendance record: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }

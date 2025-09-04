@@ -11,13 +11,34 @@ export async function GET() {
         products (*),
         recipe_items (
           *,
-          ingredients (*)
+          stock_items (*)
         )
       `)
       .order('name', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json(recipes || []);
+    
+    // Transform the data to match frontend expectations
+    const transformedRecipes = (recipes || []).map((recipe: any) => ({
+      ...recipe,
+      items: recipe.recipe_items?.map((item: any) => ({
+        id: item.id,
+        ingredientId: item.stockItemId, // Map stockItemId to ingredientId for frontend
+        quantity: item.quantity,
+        unit: item.unit,
+        notes: item.notes,
+        ingredient: item.stock_items ? {
+          id: item.stock_items.id,
+          name: item.stock_items.name,
+          unit: item.stock_items.unit,
+          stockQuantity: item.stock_items.stockQuantity,
+          minStockLevel: item.stock_items.minStockLevel,
+          costPerUnit: item.stock_items.costPerUnit,
+        } : undefined
+      })) || []
+    }));
+    
+    return NextResponse.json(transformedRecipes);
   } catch (error) {
     console.error('Error fetching recipes:', error);
     return NextResponse.json(

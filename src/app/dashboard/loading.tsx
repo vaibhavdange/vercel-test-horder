@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <div className="flex h-full">
       <div className="flex-1 flex flex-col">
-        <div className="h-16 bg-white border-b border-gray-200">
+        <div className="bg-white border-b border-gray-200" style={{ height: '47px' }}>
           <div className="h-4 bg-gray-200 rounded w-48 mx-6 my-4 animate-pulse"></div>
         </div>
         <div className="flex-1 p-6 space-y-4">

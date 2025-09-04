@@ -6,11 +6,35 @@ export async function GET() {
     const supabase = supabaseDb['client'];
     const { data: attendance, error } = await supabase
       .from('staff_attendance')
-      .select('*')
+      .select(`
+        *,
+        staff (
+          *,
+          users (*)
+        )
+      `)
       .order('createdAt', { ascending: false });
 
     if (error) throw error;
-    return NextResponse.json(attendance || []);
+    
+    // Transform the data to match frontend expectations
+    const transformedAttendance = (attendance || []).map((record: any) => ({
+      ...record,
+      staff: record.staff ? {
+        ...record.staff,
+        user: record.staff.users
+      } : undefined
+    }));
+    
+    return NextResponse.json({
+      attendance: transformedAttendance,
+      pagination: {
+        page: 1,
+        limit: 100,
+        total: transformedAttendance.length,
+        pages: 1
+      }
+    });
   } catch (error) {
     console.error("Failed to fetch attendance:", error);
     return NextResponse.json(
@@ -23,9 +47,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log("Received attendance data:", body);
     const { staffId, status, date, notes } = body;
 
     if (!staffId || !status) {
+      console.log("Missing required fields:", { staffId, status });
       return NextResponse.json(
         { error: "Staff ID and status are required" },
         { status: 400 }
@@ -46,12 +72,17 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase error:", error);
+      throw error;
+    }
+    
+    console.log("Created attendance record:", record);
     return NextResponse.json(record, { status: 201 });
   } catch (error) {
     console.error("Failed to create attendance record:", error);
     return NextResponse.json(
-      { error: "Failed to create attendance record" },
+      { error: `Failed to create attendance record: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }

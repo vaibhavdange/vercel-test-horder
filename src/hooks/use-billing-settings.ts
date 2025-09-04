@@ -173,7 +173,7 @@ export interface BusinessDetails {
   gstin: string;
 }
 
-// Get business details for bills
+// Get business details for bills (now uses column-based approach)
 export const useBusinessDetails = () => {
   return useQuery({
     queryKey: ["billing-settings", "business_details"],
@@ -204,7 +204,22 @@ export const useBusinessDetails = () => {
           gstin: "27ABCDE1234F1Z5",
         };
       }
-      return JSON.parse(settings[0].value);
+      // Handle both old JSON format and new column-based format
+      const setting = settings[0];
+      if (typeof setting.value === 'string' && setting.value.startsWith('{')) {
+        return JSON.parse(setting.value);
+      } else {
+        // This is the new column-based format
+        return {
+          restaurantName: setting.restaurantname || "BORDERS RESTO & PUB",
+          address: setting.addresslineone || "123, Example St., Delhi, 112234",
+          phone: setting.restaurantphone || "9012345678",
+          email: setting.restaurantemail || "hello@borderspub.com",
+          website: setting.restaurantwebsite || "www.borderspub.in",
+          fssai: setting.restaurantfssai || "11223344556677",
+          gstin: setting.restaurantgst || "27ABCDE1234F1Z5",
+        };
+      }
     },
     staleTime: 30000, // Cache for 30 seconds
     refetchOnWindowFocus: true,

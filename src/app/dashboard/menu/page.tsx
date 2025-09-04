@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Image as ImageIcon, Search, Filter, MoreVertical } from "lucide-react";
+import { Plus, Edit, Trash2, Image as ImageIcon, Search, Filter, MoreVertical, X } from "lucide-react";
 import { useCategories } from "@/hooks/use-categories";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useHighlight } from "@/hooks/use-highlight";
@@ -112,6 +112,14 @@ export default function MenuPage() {
 
   const getCategoryIcon = (categoryName: string) => {
     return categoryIcons[categoryName] || "🍴";
+  };
+
+  // Helper function to truncate description to 3 words
+  const truncateDescription = (description: string) => {
+    if (!description) return "";
+    const words = description.split(" ");
+    if (words.length <= 3) return description;
+    return words.slice(0, 3).join(" ") + "...";
   };
 
   const handleAddCategory = async () => {
@@ -507,21 +515,22 @@ export default function MenuPage() {
 
   return (
     <div className="flex flex-col h-full">
-      
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {/* Categories Section */}
+
+        {/* Categories Section Header */}
+        <div className="flex items-center justify-between mb-6 gap-2 sm:gap-4 flex-wrap">
+          <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900">Manage Categories</h2>
+          <button
+            onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", icon: "🍴" }); setShowEmojiPicker(false); setShowEmojiPickerEdit(false); setShowAddCategory(true); }}
+            className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap shrink-0 text-sm font-medium"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Category</span>
+          </button>
+        </div>
+
+        {/* Categories Container */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
-          <div className="flex items-center justify-between mb-6 gap-2 sm:gap-4 flex-wrap">
-            <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900">Manage Categories</h2>
-            <button
-              onClick={() => { setEditingCategory(null); setCategoryForm({ name: "", description: "", icon: "🍴" }); setShowEmojiPicker(false); setShowEmojiPickerEdit(false); setShowAddCategory(true); }}
-              className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center gap-2 whitespace-nowrap shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add New Category</span>
-            </button>
-          </div>
-          
           {categoriesLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
@@ -563,36 +572,41 @@ export default function MenuPage() {
         </div>
 
         {/* Menu Items Section */}
-        <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
           <div className="flex items-center justify-between mb-6 gap-2 sm:gap-4 flex-wrap">
             <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900">
               {activeCategory === "All" ? "Manage Menu Items" : `Items in ${categories.find(c => c.id === activeCategory)?.name || 'Category'}`}
             </h2>
-            <button 
-              onClick={() => { setSelectedProduct(null); setProductForm({ name: "", description: "", price: "", cost: "", stockQuantity: "", minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, isAlcohol: false, extras: [], variants: [] }); setShowAddProduct(true); }}
-              className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center gap-2 whitespace-nowrap shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Menu Item</span>
-            </button>
+                      <button 
+            onClick={() => { setSelectedProduct(null); setProductForm({ name: "", description: "", price: "", cost: "", stockQuantity: "", minStockLevel: "", categoryId: "", barcode: "", taxRate: "0.0", image: "", thumbnail: "", isActive: true, isAlcohol: false, extras: [], variants: [] }); setShowAddProduct(true); }}
+            className="p-2 sm:px-4 sm:py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center space-x-2 whitespace-nowrap shrink-0 text-sm font-medium"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Menu Item</span>
+          </button>
           </div>
 
-          {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          {/* Search and Filters Row */}
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search products..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
             </div>
+            </div>
+            
+            {/* Filter Button */}
             <button className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2">
               <Filter className="h-4 w-4" />
               <span>Filter</span>
             </button>
+            
             {/* Show Inactive Items - Toggle Switch */}
             <div className={`w-full sm:w-auto border rounded-lg px-4 py-2 flex items-center justify-between ${
               showInactiveItems 
@@ -663,11 +677,12 @@ export default function MenuPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
             </div>
           ) : (
+          <div className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">
+              <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <input 
                       type="checkbox" 
                       className="rounded border-gray-300 text-green-600 focus:ring-green-500"
@@ -675,20 +690,20 @@ export default function MenuPage() {
                       onChange={(e) => handleSelectAllProducts(e.target.checked)}
                     />
                   </th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Image</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Product Name</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Stock</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Category</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Price</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Availability</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Availability</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white divide-y divide-gray-200">
                   {filteredProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-gray-500">
+                      <td colSpan={9} className="text-center py-8 text-gray-500">
                         {searchTerm ? "No products found matching your search." : "No products in this category."}
                       </td>
                     </tr>
@@ -697,9 +712,9 @@ export default function MenuPage() {
                       <tr 
                         key={product.id} 
                         id={`product-${product.id}`}
-                        className="border-b border-gray-100 hover:bg-gray-50"
+                        className="hover:bg-gray-50"
                       >
-                    <td className="py-4 px-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <input 
                         type="checkbox" 
                         className="rounded border-gray-300 text-green-600 focus:ring-green-500"
@@ -707,7 +722,7 @@ export default function MenuPage() {
                         onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
                       />
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
                         <div>
                           <OptimizedImage
@@ -725,25 +740,33 @@ export default function MenuPage() {
                         </div>
                       </div>
                     </td>
-                                            <td className="py-4 px-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                            <div className="font-medium text-gray-900">{product.name}</div>
-                            <div className="text-sm text-gray-500">{product.description}</div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-sm text-gray-600">
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                        <div className="text-sm text-gray-500" title={product.description}>
+                          {truncateDescription(product.description || "")}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-600">
                           <span className={product.stockQuantity <= product.minStockLevel ? "text-red-600 font-medium" : ""}>
                             {product.stockQuantity}
                           </span>
+                      </div>
                         </td>
-                        <td className="py-4 px-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-600">
                           <div className="flex items-center space-x-2">
                             <span>{product.category?.icon || "🍴"}</span>
                             <span>{product.category?.name || "Unknown"}</span>
+                        </div>
                       </div>
                     </td>
-                        <td className="py-4 px-4 font-medium text-gray-900">{format(product.price)}</td>
-                        <td className="py-4 px-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{format(product.price)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                             product.isActive
                               ? "bg-green-100 text-green-800"
@@ -752,7 +775,7 @@ export default function MenuPage() {
                             {product.isActive ? "Active" : "Inactive"}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                             product.isActive && product.stockQuantity > 0
                               ? "bg-green-100 text-green-800"
@@ -761,17 +784,19 @@ export default function MenuPage() {
                             {product.isActive && product.stockQuantity > 0 ? "In Stock" : "Out of Stock"}
                           </span>
                         </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
                             <button 
                               onClick={() => handleEditProduct(product)}
-                              className="p-1 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Edit Product"
                             >
                           <Edit className="h-4 w-4" />
                         </button>
                             <button 
                               onClick={() => handleDeleteProduct(product.id)}
-                              className="p-1 text-red-400 hover:text-red-600 transition-colors duration-200"
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete Product"
                             >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -782,22 +807,22 @@ export default function MenuPage() {
                   )}
               </tbody>
             </table>
+            </div>
           </div>
           )}
-        </div>
       </div>
 
       {/* Add New Category Modal */}
       {showAddCategory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Add New Category</h3>
               <button
                 onClick={() => setShowAddCategory(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             
@@ -850,19 +875,23 @@ export default function MenuPage() {
               </div>
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex space-x-3 pt-4">
               <button
-                onClick={() => setShowAddCategory(false)}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                onClick={handleAddCategory}
+                className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
+                disabled={!categoryForm.name || createCategory.isPending}
               >
-                Cancel
+                {createCategory.isPending ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <span>Create</span>
+                )}
               </button>
               <button 
-                onClick={handleAddCategory}
-                disabled={!categoryForm.name || createCategory.isPending}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowAddCategory(false)}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
               >
-                {createCategory.isPending ? "Creating..." : "Save"}
+                Cancel
               </button>
             </div>
           </div>
@@ -873,13 +902,13 @@ export default function MenuPage() {
       {showEditCategory && editingCategory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Category</h3>
               <button
                 onClick={() => setShowEditCategory(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             
@@ -932,24 +961,32 @@ export default function MenuPage() {
               </div>
             </div>
             
-            <div className="flex space-x-3 mt-8">
+            <div className="flex space-x-3 pt-4">
               <button 
                 onClick={handleUpdateCategory}
+                className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
                 disabled={!categoryForm.name || updateCategory.isPending}
-                className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
               >
-                {updateCategory.isPending ? "Updating..." : "Save Changes"}
+                {updateCategory.isPending ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <span>Update</span>
+                )}
               </button>
               
               <button 
                 onClick={() => handleDeleteCategory(editingCategory.id)}
                 disabled={deleteCategory.isPending}
-                className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-red-50 text-red-700 border border-red-200 rounded-full hover:bg-red-100 hover:border-red-300 transition-colors duration-200 flex items-center justify-center"
               >
-                <div className="flex items-center justify-center space-x-2">
+                {deleteCategory.isPending ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                ) : (
+                  <div className="flex items-center space-x-2">
                   <Trash2 className="h-4 w-4" />
-                  <span>{deleteCategory.isPending ? "Deleting..." : "Delete Category"}</span>
+                    <span>Delete</span>
                 </div>
+                )}
               </button>
             </div>
           </div>
@@ -960,13 +997,13 @@ export default function MenuPage() {
       {showAddProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-[500px] max-w-[90vw] mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Add New Product</h3>
               <button
                 onClick={() => setShowAddProduct(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             
@@ -1130,19 +1167,23 @@ export default function MenuPage() {
               />
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex space-x-3 pt-4">
               <button
-                onClick={() => setShowAddProduct(false)}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                onClick={handleAddProduct}
+                className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
+                disabled={!productForm.name || !productForm.price || !productForm.categoryId || createProduct.isPending}
               >
-                Cancel
+                {createProduct.isPending ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <span>Create</span>
+                )}
               </button>
               <button 
-                onClick={handleAddProduct}
-                disabled={!productForm.name || !productForm.price || !productForm.categoryId || createProduct.isPending}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowAddProduct(false)}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
               >
-                {createProduct.isPending ? "Saving..." : "Save"}
+                Cancel
               </button>
             </div>
           </div>
@@ -1153,13 +1194,13 @@ export default function MenuPage() {
       {showEditProduct && selectedProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-[500px] max-w-[90vw] mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Product</h3>
               <button
                 onClick={() => setShowEditProduct(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             
@@ -1317,19 +1358,23 @@ export default function MenuPage() {
               />
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex space-x-3 pt-4">
               <button
-                onClick={() => setShowEditProduct(false)}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                onClick={handleUpdateProduct}
+                className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
+                disabled={!productForm.name || !productForm.price || !productForm.categoryId || updateProduct.isPending}
               >
-                Cancel
+                {updateProduct.isPending ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <span>Update</span>
+                )}
               </button>
               <button 
-                onClick={handleUpdateProduct}
-                disabled={!productForm.name || !productForm.price || !productForm.categoryId || updateProduct.isPending}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowEditProduct(false)}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
               >
-                {updateProduct.isPending ? "Updating..." : "Save"}
+                Cancel
               </button>
             </div>
           </div>
@@ -1340,7 +1385,7 @@ export default function MenuPage() {
       {showBulkActionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 {bulkAction === 'delete' && 'Delete Products'}
                 {bulkAction === 'updateStatus' && 'Update Product Status'}
@@ -1351,7 +1396,7 @@ export default function MenuPage() {
                 onClick={() => setShowBulkActionModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             
@@ -1410,19 +1455,23 @@ export default function MenuPage() {
               )}
             </div>
             
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex space-x-3 pt-4">
               <button
-                onClick={() => setShowBulkActionModal(false)}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                onClick={handleBulkAction}
+                className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-black transition-colors duration-200 flex items-center justify-center"
+                disabled={isPerformingBulkAction || (bulkAction === 'updateCategory' && !bulkActionData.categoryId) || (bulkAction === 'updateStock' && bulkActionData.stockQuantity === undefined)}
               >
-                Cancel
+                {isPerformingBulkAction ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <span>Confirm</span>
+                )}
               </button>
               <button 
-                onClick={handleBulkAction}
-                disabled={isPerformingBulkAction || (bulkAction === 'updateCategory' && !bulkActionData.categoryId) || (bulkAction === 'updateStock' && bulkActionData.stockQuantity === undefined)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowBulkActionModal(false)}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
               >
-                {isPerformingBulkAction ? "Processing..." : "Confirm"}
+                Cancel
               </button>
             </div>
           </div>

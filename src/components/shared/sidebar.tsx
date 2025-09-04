@@ -123,18 +123,18 @@ export default function Sidebar() {
   const firstLetter = restaurantName.charAt(0).toUpperCase();
 
   return (
-    <div className={`flex h-full flex-col bg-white border-r border-gray-200 shadow-lg transition-all duration-300 ease-in-out z-10 ${
-      isCollapsed ? 'w-16' : 'w-64'
-    } ${isCollapsed ? 'border-r-2 border-gray-300' : ''}`}>
+    <div className={`flex h-full flex-col bg-white border-r border-gray-200 shadow-lg z-10 ${
+      isCollapsed ? '' : 'w-64'
+    } ${isCollapsed ? 'border-r-2 border-gray-300' : ''}`} style={isCollapsed ? { width: '47px' } : {}}>
       {/* Logo */}
-      <div className="flex h-16 items-center justify-center border-b border-gray-200 relative">
-        {!isCollapsed && <h1 className="text-2xl font-bold text-gray-900">{restaurantName}</h1>}
-        {isCollapsed && <h1 className="text-lg font-bold text-gray-900">{firstLetter}</h1>}
+      <div className="flex items-center justify-center border-b border-gray-200 relative px-3 py-2" style={{ minHeight: '47px' }}>
+        {!isCollapsed && <h1 className="text-lg md:text-xl lg:text-xl font-bold text-gray-900 text-center whitespace-normal break-words leading-tight">{restaurantName}</h1>}
+        {isCollapsed && <h1 className="text-sm md:text-base lg:text-lg font-bold text-gray-900 text-center whitespace-normal break-words leading-tight">{firstLetter}</h1>}
         
         {/* Toggle Button */}
         <button
           onClick={toggleSidebar}
-          className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg transition-all duration-200 hover:bg-gray-50 hover:scale-110"
+          className="absolute -right-3 top-1/2 transform -translate-y-1/2 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg hover:bg-gray-50 hover:scale-110"
           title={isCollapsed ? "Expand sidebar (Ctrl/Cmd + B)" : "Collapse sidebar (Ctrl/Cmd + B)"}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -163,16 +163,16 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`group flex items-center justify-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+              className={`group flex items-center text-sm font-medium rounded-lg ${
                 isActive
-                  ? "bg-green-100 text-green-700 border border-green-200 shadow-sm"
-                  : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-              } ${isCollapsed ? 'justify-center hover:bg-gray-100' : 'justify-start'}`}
+                  ? "text-green-600"
+                  : "text-gray-400"
+              } ${isCollapsed ? 'justify-center px-0 py-3' : 'justify-start px-3 py-3'}`}
               title={isCollapsed ? item.name : undefined}
               onMouseEnter={() => router.prefetch(item.href)}
             >
               <item.icon
-                className={`flex-shrink-0 transition-colors duration-200 ${
+                className={`flex-shrink-0 ${
                   isActive ? "text-green-600" : "text-gray-400 group-hover:text-gray-500"
                 } ${isCollapsed ? 'h-5 w-5' : 'mr-3 h-5 w-5'}`}
               />

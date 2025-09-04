@@ -4,7 +4,17 @@ import { supabaseDb } from "@/lib/database/supabase";
 export async function GET() {
   try {
     const staff = await supabaseDb.getStaff();
-    return NextResponse.json(staff);
+    
+    // Return the expected format with staff array and pagination
+    return NextResponse.json({
+      staff: staff || [],
+      pagination: {
+        total: staff?.length || 0,
+        page: 1,
+        limit: 100,
+        totalPages: 1
+      }
+    });
   } catch (error) {
     console.error("Failed to fetch staff:", error);
     return NextResponse.json(
@@ -17,11 +27,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, phone, role, isActive } = body;
+    const { fullName, email, phone, role, isActive, username, password, employeeId, profilePicture, dateOfBirth, salary, shiftStart, shiftEnd, address, additionalDetails } = body;
 
-    if (!name || !email) {
+    if (!fullName || !email) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { error: "Full name and email are required" },
         { status: 400 }
       );
     }
@@ -34,9 +44,9 @@ export async function POST(request: NextRequest) {
       .from('users')
       .insert({
         id: userId,
-        username: email.split('@')[0], // Use email prefix as username
-        passwordHash: 'temp_password_hash', // This should be properly hashed in production
-        fullName: name,
+        username: username || email.split('@')[0], // Use provided username or email prefix
+        passwordHash: password ? `hashed_${password}` : 'temp_password_hash', // This should be properly hashed in production
+        fullName: fullName,
         email,
         phone,
         role: role || 'cashier',
@@ -54,8 +64,17 @@ export async function POST(request: NextRequest) {
       .insert({
         id: `staff_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: userId,
-        employeeId: `EMP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+        employeeId: employeeId || `EMP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+        profilePicture: profilePicture,
+        dateOfBirth: dateOfBirth,
+        salary: salary,
+        shiftStart: shiftStart,
+        shiftEnd: shiftEnd,
+        address: address,
+        additionalDetails: additionalDetails,
+        hireDate: new Date().toISOString(),
         isActive: isActive !== false,
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
       .select()

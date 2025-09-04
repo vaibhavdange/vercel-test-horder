@@ -136,6 +136,54 @@ export interface BillingSettings {
   updatedAt: string;
 }
 
+// New column-based restaurant settings interface (matches actual DB schema)
+export interface RestaurantSettings {
+  id: string;
+  key: string;
+  value: string;
+  description?: string;
+  updated_at: string;
+  // Restaurant-specific columns (snake_case as per actual DB schema)
+  restaurantname?: string;
+  restaurantid?: string;
+  storeid?: string;
+  addresslineone?: string;
+  addresslinetwo?: string;
+  restaurantcity?: string;
+  restaurantpin?: string;
+  restaurantphone?: string;
+  restaurantemail?: string;
+  restaurantwebsite?: string;
+  restaurantgstrate?: number;
+  restaurantgst?: string;
+  restauranttaxid?: string;
+  restaurantfssai?: string;
+  restaurantpolicy?: string;
+  restaurantfooternote?: string;
+  restaurantfooternoteextra?: string;
+}
+
+// Update request interface for restaurant settings
+export interface UpdateRestaurantSettingsRequest {
+  restaurantName?: string;
+  restaurantID?: string;
+  storeID?: string;
+  addressLineOne?: string;
+  addressLineTwo?: string;
+  restaurantCity?: string;
+  restaurantPin?: string;
+  restaurantPhone?: string;
+  restaurantEmail?: string;
+  restaurantWebsite?: string;
+  restaurantGstRate?: number;
+  restaurantGst?: string;
+  restaurantTaxId?: string;
+  restaurantFssai?: string;
+  restaurantPolicy?: string;
+  restaurantFooterNote?: string;
+  restaurantFooterNoteExtra?: string;
+}
+
 export interface CreateTaxCategoryData {
   name: string;
   description?: string;

@@ -14,7 +14,7 @@ export async function GET(
         products (*),
         recipe_items (
           *,
-          ingredients (*)
+          stock_items (*)
         )
       `)
       .eq('id', params.id)
@@ -27,7 +27,27 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(recipe);
+    // Transform the data to match frontend expectations
+    const transformedRecipe = {
+      ...recipe,
+      items: recipe.recipe_items?.map((item: any) => ({
+        id: item.id,
+        ingredientId: item.stockItemId, // Map stockItemId to ingredientId for frontend
+        quantity: item.quantity,
+        unit: item.unit,
+        notes: item.notes,
+        ingredient: item.stock_items ? {
+          id: item.stock_items.id,
+          name: item.stock_items.name,
+          unit: item.stock_items.unit,
+          stockQuantity: item.stock_items.stockQuantity,
+          minStockLevel: item.stock_items.minStockLevel,
+          costPerUnit: item.stock_items.costPerUnit,
+        } : undefined
+      })) || []
+    };
+
+    return NextResponse.json(transformedRecipe);
   } catch (error) {
     console.error('Error fetching recipe:', error);
     return NextResponse.json(
@@ -59,7 +79,7 @@ export async function PUT(
         name,
         description,
         servings: servings || 1,
-        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
       .eq('id', params.id)
       .select()
@@ -73,15 +93,17 @@ export async function PUT(
       await supabase
         .from('recipe_items')
         .delete()
-        .eq('recipe_id', params.id);
+        .eq('recipeId', params.id);
 
       // Create new items
       if (items.length > 0) {
         const recipeItems = items.map(item => ({
-          recipe_id: params.id,
-          ingredient_id: item.ingredientId,
+          id: `recipe_item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          recipeId: params.id,
+          stockItemId: item.ingredientId, // ingredientId maps to stockItemId
           quantity: item.quantity,
           unit: item.unit,
+          notes: item.notes || null,
         }));
 
         const { error: itemsError } = await supabase

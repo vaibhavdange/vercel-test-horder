@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus, Banknote } from "lucide-react";
+import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus, ReceiptIndianRupee } from "lucide-react";
 import { printBillFromOrderAuto } from "@/lib/print/bill";
 import { useCurrency } from "@/hooks/useCurrency";
 import { NumericKeypad } from "./NumericKeypad";
@@ -9,6 +9,7 @@ import { OrderItem, Order } from "@/types/orders";
 import { calculateLegalBilling, LegalBillingResult, BillingConfig } from "@/lib/utils/legal-billing";
 import { useDefaultAlcoholTaxRate } from "@/hooks/use-billing-settings";
 import { useProducts } from '@/hooks/use-products';
+import { useBusinessModel } from '@/hooks/use-business-model';
 
 interface PaymentMethod {
   id: string;
@@ -73,6 +74,9 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   // Get alcohol tax rate
   const { data: defaultAlcoholTaxRate = 18 } = useDefaultAlcoholTaxRate();
   const { data: allProducts, isLoading: productsLoading } = useProducts();
+  
+  // Business model detection
+  const businessModel = useBusinessModel();
 
   // Reset discount and service charge when order changes
   useEffect(() => {
@@ -182,7 +186,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   };
 
   const paymentMethods: PaymentMethod[] = [
-    { id: "cash", name: "Cash", type: "cash", isActive: true, icon: <Banknote className="h-5 w-5" /> },
+    { id: "cash", name: "Cash", type: "cash", isActive: true, icon: <ReceiptIndianRupee className="h-5 w-5" /> },
     { id: "card", name: "Card", type: "card", isActive: true, icon: <CreditCard className="h-5 w-5" /> },
     { id: "qr", name: "QR", type: "digital", isActive: true, icon: <QrCode className="h-5 w-5" /> },
   ];
@@ -738,25 +742,27 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                   </span>
                 </div>
 
-                {/* Split Payment Toggle - Inline */}
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Split Payment</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isSplitPayment}
-                      onChange={(e) => setIsSplitPayment(e.target.checked)}
-                      disabled={showReceipt}
-                      className="sr-only peer"
-                    />
-                    <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                      showReceipt ? "opacity-50 cursor-not-allowed bg-gray-200" : "bg-gray-200 peer-checked:bg-green-600"
-                    }`}></div>
-                  </label>
-                </div>
+                {/* Split Payment Toggle - Only show for Fine Dine mode */}
+                {businessModel.supportsSplitBill && (
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Split Payment</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isSplitPayment}
+                        onChange={(e) => setIsSplitPayment(e.target.checked)}
+                        disabled={showReceipt}
+                        className="sr-only peer"
+                      />
+                      <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                        showReceipt ? "opacity-50 cursor-not-allowed bg-gray-200" : "bg-gray-200 peer-checked:bg-green-600"
+                      }`}></div>
+                    </label>
+                  </div>
+                )}
 
                 {/* Split Payment Options - Buttons and Custom Input */}
-                {isSplitPayment && (
+                {businessModel.supportsSplitBill && isSplitPayment && (
                   <div className="mt-3 space-y-3">
                     {/* Split Payment Buttons */}
                     <div className="grid grid-cols-4 gap-2">
