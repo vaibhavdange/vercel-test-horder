@@ -13,15 +13,7 @@
   height: 180px;
 }
 
-/* Enhanced hover effects for table cards */
-.table-card-hover {
-  transition: all 0.2s ease-in-out;
-}
-
-.table-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
+/* Table card styles - hover effects removed */
 
 /* Drag and drop cursor for table cards - only when in edit mode */
 .table-card.edit-mode:hover {

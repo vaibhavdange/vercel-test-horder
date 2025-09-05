@@ -7,7 +7,7 @@ import { useTables } from '@/hooks/useTables';
 import { CreateTableRequest, TableStatus } from '@/types/tables';
 import PaymentMethodsSettings from '@/components/settings/PaymentMethodsSettings';
 import ServiceChargesSettings from '@/components/settings/ServiceChargesSettings';
-import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
+// import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 import TimezoneSettings from '@/components/ui/TimezoneSettings';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRestaurantSettings, useUpdateRestaurantSettings } from '@/hooks/use-restaurant-settings';
@@ -145,7 +145,15 @@ export default function SettingsPage() {
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-[1440px] mx-auto px-6 py-8">
-        
+        {/* Page Header */}
+        <div className="bg-white border-b border-gray-100 px-6 py-4 -mx-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+              <p className="text-sm text-gray-600 mt-1">Manage your restaurant configuration and preferences</p>
+            </div>
+          </div>
+        </div>
 
         <div className="mb-6">
           <div className="w-full overflow-x-auto">
@@ -158,10 +166,10 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => setActiveTab(key)}
                     aria-pressed={isActive}
-                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                    className={`px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200 ${
                       isActive
-                        ? 'text-green-600 bg-green-100'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'text-green-700 bg-green-100 border border-green-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-transparent'
                     }`}
                   >
                     <span>{label}</span>
@@ -173,19 +181,19 @@ export default function SettingsPage() {
         </div>
 
         {activeTab === 'general' && (
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
             {isLoadingSettings ? (
               <LoadingSpinner message="Loading settings..." size="md" />
             ) : (
               <div className="space-y-4">
-                <h3 className="text-base font-semibold text-gray-900">Business Profile</h3>
+                <h3 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900 mb-6">Business Profile</h3>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant name</label>
                   <input
                     type="text"
                     value={general.restaurantName}
                     onChange={(e) => setGeneral({ ...general, restaurantName: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                     placeholder="e.g., Horder Bistro"
                   />
                 </div>
@@ -196,7 +204,7 @@ export default function SettingsPage() {
                       type="text"
                       value={general.restaurantId}
                       onChange={(e) => setGeneral({ ...general, restaurantId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                       placeholder="e.g., REST-001"
                     />
                   </div>
@@ -206,7 +214,7 @@ export default function SettingsPage() {
                       type="text"
                       value={general.storeId}
                       onChange={(e) => setGeneral({ ...general, storeId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                       placeholder="e.g., STORE-101"
                     />
                   </div>
@@ -217,7 +225,7 @@ export default function SettingsPage() {
                     type="text"
                     value={general.location}
                     onChange={(e) => setGeneral({ ...general, location: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                     placeholder="Address, City, Country"
                   />
                 </div>
@@ -233,7 +241,7 @@ export default function SettingsPage() {
                         // Note: Currency is not stored in restaurant settings, so we just update local state
                         window.dispatchEvent(new CustomEvent('settings:currencyChanged'));
                       }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                     >
                       <option value="USD">USD</option>
                       <option value="EUR">EUR</option>
@@ -250,13 +258,13 @@ export default function SettingsPage() {
                         type="text"
                         value={general.timezone}
                         onChange={(e) => setGeneral({ ...general, timezone: e.target.value })}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                         placeholder="e.g., Asia/Dubai"
                       />
                       <button
                         type="button"
                         onClick={() => setShowTimezoneSettings(true)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        className="px-3 py-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm font-medium"
                         title="Configure regional timezone settings"
                       >
                         <Globe className="w-4 h-4" />
@@ -272,7 +280,7 @@ export default function SettingsPage() {
                       type="email"
                       value={general.contactEmail}
                       onChange={(e) => setGeneral({ ...general, contactEmail: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                       placeholder="info@example.com"
                     />
                   </div>
@@ -282,7 +290,7 @@ export default function SettingsPage() {
                       type="tel"
                       value={general.contactPhone}
                       onChange={(e) => setGeneral({ ...general, contactPhone: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                       placeholder="+91 9012345678"
                     />
                   </div>
@@ -292,7 +300,7 @@ export default function SettingsPage() {
                   <textarea
                     value={general.receiptFooter}
                     onChange={(e) => setGeneral({ ...general, receiptFooter: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                     rows={3}
                     placeholder="Thank you for dining with us!"
                   />
@@ -301,7 +309,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleSaveGeneralSettings}
                     disabled={updateRestaurantSettings.isPending}
-                    className="px-4 py-2 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-full bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   >
                     {updateRestaurantSettings.isPending ? 'Saving...' : 'Save Settings'}
                   </button>
@@ -316,25 +324,25 @@ export default function SettingsPage() {
         )}
 
         {activeTab === 'tables' && (
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 onClick={() => setShowAddFloor(true)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-4 text-left hover:bg-gray-50"
+                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-left hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
               >
                 <div className="text-sm text-gray-500">Floors</div>
                 <div className="text-lg font-medium text-gray-900">Add Floor</div>
               </button>
               <button
                 onClick={() => setShowAddArea(true)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-4 text-left hover:bg-gray-50"
+                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-left hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
               >
                 <div className="text-sm text-gray-500">Areas</div>
                 <div className="text-lg font-medium text-gray-900">Add Area</div>
               </button>
               <button
                 onClick={() => setShowAddTable(true)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-4 text-left hover:bg-gray-50"
+                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-left hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
               >
                 <div className="text-sm text-gray-500">Tables</div>
                 <div className="text-lg font-medium text-gray-900">Add Table</div>
@@ -345,7 +353,7 @@ export default function SettingsPage() {
                 onClick={() => {
                   alert('Tables settings saved successfully!');
                 }}
-                className="px-4 py-2 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700"
+                className="px-4 py-2 rounded-full bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors duration-200"
               >
                 Save Settings
               </button>
@@ -390,7 +398,7 @@ export default function SettingsPage() {
           onClose={() => setShowTimezoneSettings(false)} 
         />
 
-        <DevelopmentNotice />
+        {/* <DevelopmentNotice /> */}
       </div>
     </div>
   );
@@ -407,9 +415,9 @@ function FloorModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (dat
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Add New Floor</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">Add New Floor</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors duration-200">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -420,7 +428,7 @@ function FloorModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (dat
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               placeholder="e.g., Ground Floor, First Floor"
               required
             />
@@ -430,13 +438,13 @@ function FloorModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (dat
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               rows={3}
             />
           </div>
           <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition-colors border border-gray-300">Cancel</button>
-            <button type="submit" className="flex-1 bg-emerald-200 text-emerald-800 py-2 rounded-lg hover:bg-emerald-300 transition-colors border border-emerald-300">Create Floor</button>
+            <button type="button" onClick={onClose} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-full hover:bg-gray-200 transition-colors border border-gray-300 text-sm font-medium">Cancel</button>
+            <button type="submit" className="flex-1 bg-gray-900 text-white py-2 rounded-full hover:bg-gray-800 transition-colors text-sm font-medium">Create Floor</button>
           </div>
         </form>
       </div>
@@ -455,9 +463,9 @@ function AreaModal({ floors, onClose, onSubmit }: { floors: any[]; onClose: () =
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Add New Area</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">Add New Area</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors duration-200">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -467,7 +475,7 @@ function AreaModal({ floors, onClose, onSubmit }: { floors: any[]; onClose: () =
             <select
               value={formData.floorId}
               onChange={(e) => setFormData({ ...formData, floorId: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               required
             >
               <option value="">Select a floor</option>
@@ -482,7 +490,7 @@ function AreaModal({ floors, onClose, onSubmit }: { floors: any[]; onClose: () =
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               placeholder="e.g., Main Dining, Bar Area, Outdoor"
               required
             />
@@ -492,13 +500,13 @@ function AreaModal({ floors, onClose, onSubmit }: { floors: any[]; onClose: () =
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               rows={3}
             />
           </div>
           <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition-colors border border-gray-300">Cancel</button>
-            <button type="submit" className="flex-1 bg-violet-200 text-violet-800 py-2 rounded-lg hover:bg-violet-300 transition-colors border border-violet-300">Create Area</button>
+            <button type="button" onClick={onClose} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-full hover:bg-gray-200 transition-colors border border-gray-300 text-sm font-medium">Cancel</button>
+            <button type="submit" className="flex-1 bg-gray-900 text-white py-2 rounded-full hover:bg-gray-800 transition-colors text-sm font-medium">Create Area</button>
           </div>
         </form>
       </div>
@@ -520,9 +528,9 @@ function TableModal({ floors, areas, onClose, onSubmit }: { floors: any[]; areas
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Add New Table</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-semibold text-gray-900">Add New Table</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors duration-200">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -532,7 +540,7 @@ function TableModal({ floors, areas, onClose, onSubmit }: { floors: any[]; areas
             <select
               value={selectedFloor}
               onChange={(e) => { setSelectedFloor(e.target.value); setFormData({ ...formData, floorId: e.target.value, areaId: '' }); }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               required
             >
               <option value="">Select a floor</option>
@@ -546,7 +554,7 @@ function TableModal({ floors, areas, onClose, onSubmit }: { floors: any[]; areas
             <select
               value={formData.areaId}
               onChange={(e) => setFormData({ ...formData, areaId: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               required
               disabled={!selectedFloor}
             >
@@ -562,7 +570,7 @@ function TableModal({ floors, areas, onClose, onSubmit }: { floors: any[]; areas
               type="text"
               value={formData.tableNumber}
               onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               placeholder="e.g., 1, 2, VIP-1"
               required
             />
@@ -573,15 +581,15 @@ function TableModal({ floors, areas, onClose, onSubmit }: { floors: any[]; areas
               type="number"
               value={formData.capacity}
               onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               min="1"
               max="20"
               required
             />
           </div>
           <div className="flex items-center justify-between gap-2 pt-4">
-            <button type="button" onClick={onClose} className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md border border-gray-300 hover:bg-gray-200">Cancel</button>
-            <button type="submit" className="px-3 py-1.5 text-sm bg-sky-600 text-white rounded-md hover:bg-sky-700">Create</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-full border border-gray-300 hover:bg-gray-200 transition-colors font-medium">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors font-medium">Create</button>
           </div>
         </form>
       </div>

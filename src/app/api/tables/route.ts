@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
           )
         )
       `)
+      .order('createdAt', { referencedTable: 'orders', ascending: false })
       .single();
 
     if (error) throw error;

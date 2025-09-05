@@ -45,11 +45,15 @@ export function TableCard({
 
   // Calculate the total payable amount (same as PaymentDrawer)
   const payableAmount = useMemo(() => {
-    if (!table.orders?.[0]) {
+    if (!table.orders?.length) {
       return 0;
     }
 
-    const order = table.orders[0];
+    // Get the most recent order (should be first due to ordering, but add safety check)
+    const sortedOrders = [...(table.orders || [])].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const order = sortedOrders[0];
 
     // If the order already has all the calculated fields, use them
     if (order.subtotal && order.taxAmount !== undefined && order.serviceChargeAmount !== undefined && order.discountAmount !== undefined) {
@@ -81,17 +85,17 @@ export function TableCard({
   const getTableStatusColor = (status: TableStatus) => {
     switch (status) {
       case 'available':
-        return 'status-available';
+        return 'border-green-400 bg-green-50 text-green-700';
       case 'occupied':
-        return 'status-occupied';
+        return 'border-blue-400 bg-blue-50 text-blue-700';
       case 'reserved':
-        return 'status-reserved';
+        return 'border-yellow-400 bg-yellow-50 text-yellow-700';
       case 'cleaning':
-        return 'status-cleaning';
+        return 'border-orange-400 bg-orange-50 text-orange-700';
       case 'unavailable':
-        return 'status-unavailable';
+        return 'border-gray-300 bg-gray-50 text-gray-600';
       default:
-        return 'border-gray-300';
+        return 'border-gray-300 bg-gray-50 text-gray-600';
     }
   };
 
@@ -180,9 +184,9 @@ export function TableCard({
     <div className={`relative group table-card ${isEditMode ? 'edit-mode' : ''}`}>
       <div
         className={`
-          relative rounded-xl border-2 shadow-sm p-4 transition-all duration-200 hover:shadow-md h-full
+          relative rounded-2xl border-2 shadow-sm p-4 h-full
           ${getTableStatusColor(table.status)}
-          bg-white hover:bg-gray-50 table-card-hover
+          bg-white
           ring-2 ring-offset-2 ring-offset-white ${getStatusRingClass(table.status)}
         `}
         onClick={() => isClickable && onTableClick(table)}
@@ -211,7 +215,7 @@ export function TableCard({
                   e.stopPropagation();
                   setShowQuickActions(!showQuickActions);
                 }}
-                className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200"
+                className="p-1.5 hover:bg-gray-100 rounded-lg opacity-100 transition-all duration-200"
               >
                 <MoreVertical className="w-4 h-4 text-gray-600" />
               </button>
@@ -222,9 +226,11 @@ export function TableCard({
         {/* Table Details */}
         <div className="space-y-2.5">
           {/* Capacity */}
-          <div className="flex items-center gap-2 text-sm text-gray-700">
-            <Users className="w-4 h-4 text-gray-500" />
-            <span>{table.capacity} seats</span>
+          <div className="flex items-center gap-4 text-sm text-gray-700">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-gray-500" />
+              <span>{table.capacity} seats</span>
+            </div>
           </div>
 
           {/* Area/Floor Info */}
@@ -233,40 +239,54 @@ export function TableCard({
             <span>{table.area?.name} • {table.floor?.name}</span>
           </div>
 
-          {/* Optional: Elapsed Time for Occupied Tables */}
-          {table.status === 'occupied' && table.orders?.[0] && (
-            <OccupiedTimer 
-              createdAt={table.orders?.[0]?.createdAt as any} 
-              status={table.orders?.[0]?.status as any}
-            />
+          {/* CTA Button for Available Tables */}
+          {table.status === 'available' && (
+            <button
+              className="flex items-center gap-2 text-xs text-emerald-600 hover:text-emerald-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.location.href = `/dashboard/new-order?table=${table.id}`;
+              }}
+            >
+              Click to Seat Now
+            </button>
           )}
+          {/* Optional: Elapsed Time for Occupied Tables */}
+          {table.status === 'occupied' && table.orders?.length > 0 && (() => {
+            const sortedOrders = [...(table.orders || [])].sort((a, b) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+            const currentOrder = sortedOrders[0];
+            return (
+              <div className="flex items-center justify-between">
+                <OccupiedTimer 
+                  createdAt={currentOrder?.createdAt as any} 
+                  status={currentOrder?.status as any}
+                />
+                {/* Bill Button - Text only */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onOpenPayment?.(currentOrder); }}
+                  // disabled={currentOrder.paymentStatus === 'paid'}
+                  className={`text-xs font-medium ${
+                    currentOrder.paymentStatus === 'paid'
+                      ? 'text-green-600'
+                      : 'text-yellow-600'
+                  }`}
+                  // title={currentOrder.paymentStatus === 'paid' ? 'Bill already paid' : 'Pay bill'}
+                >
+                  <span>
+                    {payableAmount > 0 ? format(payableAmount) : 'Pay Bill'}
+                  </span>
+                  {currentOrder.paymentStatus === 'paid' && (
+                    <span className="ml-1">✓</span>
+                  )}
+                </button>
+              </div>
+            );
+          })()}
         </div>
 
-        {/* Bill and Amend Buttons - Positioned at bottom right */}
-        {table.status === 'occupied' && table.orders?.[0] && (
-          <div className="absolute bottom-3 right-3 flex items-center gap-2">
-            {/* Bill Button - Disabled if already paid */}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onOpenPayment?.(table.orders![0]); }}
-              disabled={table.orders[0].paymentStatus === 'paid'}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border ${
-                table.orders[0].paymentStatus === 'paid'
-                  ? 'bg-green-50 text-green-700 border-green-200 cursor-not-allowed'
-                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-              }`}
-              title={table.orders[0].paymentStatus === 'paid' ? 'Bill already paid' : 'Pay bill'}
-            >
-              <CreditCard className="w-3 h-3" />
-              <span>
-                {payableAmount > 0 ? format(payableAmount) : 'Pay Bill'}
-              </span>
-              {table.orders[0].paymentStatus === 'paid' && (
-                <span className="ml-1 text-xs">✓</span>
-              )}
-            </button>
-          </div>
-        )}
 
         {/* Quick Actions Dropdown (Portal) */}
         {showQuickActions && showActions && typeof document !== 'undefined' && createPortal(

@@ -9,7 +9,10 @@ export async function GET(
     const supabase = supabaseDb['client'];
     const { data: staff, error } = await supabase
       .from('staff')
-      .select('*')
+      .select(`
+        *,
+        users (*)
+      `)
       .eq('id', params.id)
       .single();
 
@@ -20,7 +23,13 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(staff);
+    // Transform the data to match frontend expectations
+    const transformedStaff = {
+      ...staff,
+      user: staff.users
+    };
+
+    return NextResponse.json(transformedStaff);
   } catch (error) {
     console.error("Failed to fetch staff member:", error);
     return NextResponse.json(
@@ -36,11 +45,25 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { name, email, phone, role, isActive } = body;
+    const { 
+      fullName, 
+      email, 
+      phone, 
+      role, 
+      isActive, 
+      employeeId, 
+      profilePicture, 
+      dateOfBirth, 
+      salary, 
+      shiftStart, 
+      shiftEnd, 
+      address, 
+      additionalDetails 
+    } = body;
 
-    if (!name || !email) {
+    if (!fullName || !email) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { error: "Full name and email are required" },
         { status: 400 }
       );
     }
@@ -65,7 +88,7 @@ export async function PUT(
     const { data: user, error: userError } = await supabase
       .from('users')
       .update({
-        fullName: name,
+        fullName,
         email,
         phone,
         role: role || 'cashier',
@@ -78,10 +101,18 @@ export async function PUT(
 
     if (userError) throw userError;
 
-    // Update the staff record
+    // Update the staff record with all fields
     const { data: staff, error: staffError } = await supabase
       .from('staff')
       .update({
+        employeeId: employeeId,
+        profilePicture: profilePicture,
+        dateOfBirth: dateOfBirth,
+        salary: salary,
+        shiftStart: shiftStart,
+        shiftEnd: shiftEnd,
+        address: address,
+        additionalDetails: additionalDetails,
         isActive: isActive !== false,
         updatedAt: new Date().toISOString(),
       })
@@ -91,6 +122,7 @@ export async function PUT(
 
     if (staffError) throw staffError;
 
+    // Return the updated staff with user data
     return NextResponse.json({ ...staff, user });
   } catch (error) {
     console.error("Failed to update staff member:", error);

@@ -38,6 +38,7 @@ export async function GET(
         )
       `)
       .eq('id', params.id)
+      .order('createdAt', { referencedTable: 'orders', ascending: false })
       .single();
 
     if (error || !table) {
@@ -118,6 +119,7 @@ export async function PUT(
           )
         )
       `)
+      .order('createdAt', { referencedTable: 'orders', ascending: false })
       .single();
 
     if (error) throw error;

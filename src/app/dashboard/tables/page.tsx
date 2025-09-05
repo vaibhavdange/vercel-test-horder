@@ -7,8 +7,10 @@ import PaymentDrawer from '@/components/ui/PaymentDrawer';
 import { Order } from '@/types/orders';
 import { useTables } from '@/hooks/useTables';
 import { TableCard } from '@/components/tables/TableCard';
+import { Filters } from '@/components/tables/Filters';
 import { parseSupabaseTimestamp } from '@/lib/time';
 import { printBillFromOrderAuto } from '@/lib/print/bill';
+import { Button } from '@/components/ui/button';
 import {
   DndContext,
   closestCenter,
@@ -28,6 +30,15 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// Helper function to get the most recent order for a table
+const getCurrentOrder = (table: Table) => {
+  if (!table.orders?.length) return null;
+  const sortedOrders = [...table.orders].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  return sortedOrders[0];
+};
 
 export default function TablesPage() {
 
@@ -205,6 +216,15 @@ export default function TablesPage() {
 
   // Derived: areas limited by selected floor
   const visibleAreas = floorFilter === 'all' ? areas : areas.filter(a => a.floorId === floorFilter);
+
+  // Calculate status counts
+  const statusCounts = {
+    available: tables.filter(t => t.status === 'available').length,
+    occupied: tables.filter(t => t.status === 'occupied').length,
+    reserved: tables.filter(t => t.status === 'reserved').length,
+    cleaning: tables.filter(t => t.status === 'cleaning').length,
+    unavailable: tables.filter(t => t.status === 'unavailable').length,
+  };
 
   // Filter tables based on search and filters
   const filteredTables = tables.filter(table => {
@@ -400,129 +420,19 @@ export default function TablesPage() {
           </div>
         )}
 
-        {/* Unified Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 lg:p-6 mb-6">
-                      {/* Top row: Floors segmented + quick stats + actions */}
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col lg:flex-row lg:items-center gap-3 justify-between">
-                {/* Floors segmented control */}
-                <div className="flex-1 min-w-0 overflow-x-auto">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setFloorFilter('all'); setAreaFilter('all'); }}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${floorFilter === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                    >
-                      All Floors
-                    </button>
-                    {floors.map((floor) => (
-                      <button
-                        key={floor.id}
-                        onClick={() => { setFloorFilter(floor.id); setAreaFilter('all'); }}
-                        className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${floorFilter === floor.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                      >
-                        {floor.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-              {/* Quick legend */}
-              <div className="hidden lg:flex items-center gap-4">
-                <div className="flex items-center gap-2 text-sm"><span className="w-2 h-2 rounded-full bg-emerald-500"/>Available {tables.filter(t => t.status === 'available').length}</div>
-                <div className="flex items-center gap-2 text-sm"><span className="w-2 h-2 rounded-full bg-sky-500"/>Occupied {tables.filter(t => t.status === 'occupied').length}</div>
-                <div className="flex items-center gap-2 text-sm"><span className="w-2 h-2 rounded-full bg-amber-500"/>Reserved {tables.filter(t => t.status === 'reserved').length}</div>
-              </div>
-
-              {/* Actions removed */}
-            </div>
-
-            {/* Status chips */}
-            {/* Mobile horizontal scroll */}
-            <div className="min-[801px]:hidden -mx-2 overflow-x-auto">
-              <div className="flex items-center gap-2 px-2 snap-x snap-mandatory">
-                {([
-                  { key: 'all', label: 'All' },
-                  { key: 'available', label: 'Available' },
-                  { key: 'occupied', label: 'Occupied' },
-                  { key: 'reserved', label: 'Reserved' },
-                  { key: 'cleaning', label: 'Cleaning' },
-                  { key: 'unavailable', label: 'Unavailable' },
-                ] as const).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setStatusFilter(key as any)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap snap-start ${statusFilter === key ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* Desktop wrap */}
-            <div className="hidden min-[801px]:flex flex-wrap gap-2 lg:items-center">
-                {([
-                  { key: 'all', label: 'All' },
-                  { key: 'available', label: 'Available' },
-                  { key: 'occupied', label: 'Occupied' },
-                  { key: 'reserved', label: 'Reserved' },
-                  { key: 'cleaning', label: 'Cleaning' },
-                  { key: 'unavailable', label: 'Unavailable' },
-                ] as const).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setStatusFilter(key as any)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${statusFilter === key ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-            </div>
-
-            {/* Bottom row: Areas for selected floor */}
-            {/* Mobile horizontal scroll */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-[801px]:hidden -mx-2 overflow-x-auto">
-                <div className="flex items-center gap-2 px-2 snap-x snap-mandatory">
-                  <button
-                    onClick={() => setAreaFilter('all')}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap snap-start ${areaFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                  >
-                    All Areas
-                  </button>
-                  {visibleAreas.map((area) => (
-                    <button
-                      key={area.id}
-                      onClick={() => setAreaFilter(area.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap snap-start ${areaFilter === area.id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                    >
-                      {area.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Desktop wrap */}
-              <div className="hidden min-[801px]:flex flex-wrap gap-2">
-                <button
-                  onClick={() => setAreaFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${areaFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                >
-                  All Areas
-                </button>
-                {visibleAreas.map((area) => (
-                  <button
-                    key={area.id}
-                    onClick={() => setAreaFilter(area.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap ${areaFilter === area.id ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                  >
-                    {area.name}
-                  </button>
-                ))}
-              </div>
-              {/* Reset filters button removed */}
-            </div>
-            
-            {/* Actions moved next to Tables heading */}
-          </div>
+        {/* Filters */}
+        <div className="mb-6">
+          <Filters
+            floor={floorFilter}
+            setFloor={setFloorFilter}
+            area={areaFilter}
+            setArea={setAreaFilter}
+            status={statusFilter}
+            setStatus={(v) => setStatusFilter(v as TableStatus | 'all')}
+            counts={statusCounts}
+            floors={floors}
+            areas={visibleAreas}
+          />
         </div>
 
         {/* Old summary indicators removed as requested */}
@@ -572,6 +482,28 @@ export default function TablesPage() {
           </div>
           
           {isEditMode ? (
+            <>
+              {/* Edit Mode Banner */}
+              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Move className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-blue-900">Rearrange Mode</h4>
+                      <p className="text-sm text-blue-700">Drag tables to reorder them. Click outside to exit.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsEditMode(false)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+              
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -599,8 +531,9 @@ export default function TablesPage() {
                 </div>
               </SortableContext>
             </DndContext>
+            </>
           ) : (
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 min-[801px]:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 auto-rows-[180px] items-stretch">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 auto-rows-[180px] items-stretch">
               {sortedFilteredTables.map((table) => (
                 <TableCard
                   key={table.id}
@@ -650,17 +583,49 @@ export default function TablesPage() {
 
         {/* Empty State */}
         {filteredTables.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Settings className="w-8 h-8 text-gray-400" />
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                <Settings className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tables found</h3>
-            <p className="text-gray-600 mb-4">
-              {statusFilter !== 'all' || areaFilter !== 'all'
-                ? 'Try adjusting your filters'
-                : 'Get started by adding your first table'}
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+              {statusFilter !== 'all' || floorFilter !== 'all' || areaFilter !== 'all'
+                ? 'No tables match your filters'
+                : 'No tables found'}
+            </h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              {statusFilter !== 'all' || floorFilter !== 'all' || areaFilter !== 'all'
+                ? 'Try adjusting your filters to see more tables, or clear all filters to view all tables.'
+                : 'Get started by adding your first table to begin managing your restaurant seating.'}
             </p>
-            {/* Add Table button removed; manage tables via Settings */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {statusFilter !== 'all' || floorFilter !== 'all' || areaFilter !== 'all' ? (
+                <button
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setFloorFilter('all');
+                    setAreaFilter('all');
+                  }}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Clear All Filters
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowManagementModal(true)}
+                  className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                >
+                  Add Your First Table
+                </button>
+              )}
+              <button
+                onClick={() => setShowManagementModal(true)}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Manage Tables
+              </button>
+            </div>
           </div>
         )}
 
@@ -878,10 +843,20 @@ function SortableTableCard({
       style={style}
       {...attributes}
       {...listeners}
-      className="touch-none"
+      className={`touch-none transition-all duration-200 ${
+        isDragging 
+          ? 'opacity-50 scale-105 shadow-lg ring-2 ring-blue-500 ring-opacity-50' 
+          : 'hover:scale-102'
+      }`}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
+      <div className={`relative ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}>
+        {/* Drag handle indicator */}
+        <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center z-10 shadow-lg">
+          <Move className="w-3 h-3 text-white" />
+        </div>
+        
               <TableCard
           table={table}
           onTableClick={onTableClick} // Pass through the click handler
@@ -891,6 +866,7 @@ function SortableTableCard({
           showActions={true}
           isEditMode={isEditMode}
         />
+      </div>
     </div>
   );
 }
@@ -1366,16 +1342,19 @@ function TableDetailsModal({
                   {table.status.charAt(0).toUpperCase() + table.status.slice(1)}
                 </span>
               </div>
-              {table.status === 'occupied' && table.orders?.[0] && (
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-blue-700">
-                    Order #{table.orders[0].orderNumber || table.orders[0].id.slice(-6)}
+              {table.status === 'occupied' && getCurrentOrder(table) && (() => {
+                const currentOrder = getCurrentOrder(table);
+                return (
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-blue-700">
+                      Order #{currentOrder?.orderNumber || currentOrder?.id.slice(-6)}
+                    </div>
+                    <div className="text-xs text-blue-600">
+                      Since {parseSupabaseTimestamp(currentOrder?.createdAt as any).toLocaleTimeString()}
+                    </div>
                   </div>
-                  <div className="text-xs text-blue-600">
-                    Since {parseSupabaseTimestamp(table.orders[0].createdAt as any).toLocaleTimeString()}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1433,83 +1412,115 @@ function TableDetailsDrawer({
   onOpenPayment: (order: any) => void;
   onAmendOrder: (order: any) => void;
 }) {
+  const currentOrder = table.status === "occupied" ? getCurrentOrder(table) : null;
+
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute inset-y-0 right-0 w-full sm:w-[420px] bg-white shadow-xl border-l border-gray-200 flex flex-col">
+      <div className="absolute inset-y-0 right-0 w-full sm:w-[400px] bg-white shadow-xl border-l flex flex-col">
+        
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between">
-          <div>
-            <div className="text-xs text-gray-500">Table</div>
-            <div className="text-xl font-semibold text-gray-900">{table.tableNumber}</div>
-            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium border mt-2 ${getStatusColor(table.status)}`}>
-              <span>{table.status.charAt(0).toUpperCase() + table.status.slice(1)}</span>
-            </div>
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Table {table.tableNumber}
+            </h2>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(
+                table.status
+              )}`}
+            >
+              {table.status}
+            </span>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-md">
-            <X className="w-5 h-5 text-gray-600" />
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-5 overflow-y-auto">
+        <div className="p-6 space-y-6 overflow-y-auto">
           {/* Info */}
-          <div className="space-y-2 text-sm text-gray-700">
-            <div className="flex items-center gap-2"><Users className="w-4 h-4 text-gray-500" /><span>{table.capacity} seats</span></div>
-            <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-500" /><span>{table.area?.name} • {table.floor?.name}</span></div>
-            {table.status === 'occupied' && table.orders?.[0] && (
-              <div className="flex items-center justify-between text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded">
-                <div>Order #{table.orders[0].orderNumber || table.orders[0].id.slice(-6)}</div>
-                <div>Since {parseSupabaseTimestamp(table.orders[0].createdAt as any).toLocaleTimeString()}</div>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-2 text-gray-700">
+              <Users className="w-4 h-4 text-gray-400" />
+              {table.capacity} seats
+            </div>
+            <div className="flex items-center gap-2 text-gray-700">
+              <MapPin className="w-4 h-4 text-gray-400" />
+              {table.area?.name} • {table.floor?.name}
+            </div>
+            {currentOrder && (
+              <div className="mt-3 text-xs text-blue-700 bg-blue-50 border border-blue-200 px-3 py-2 rounded-md flex justify-between">
+                <span>Order #{currentOrder.orderNumber || currentOrder.id.slice(-6)}</span>
+                <span>
+                  Since{" "}
+                  {parseSupabaseTimestamp(currentOrder.createdAt).toLocaleTimeString()}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Quick status actions */}
+          {/* Quick Status */}
           <div>
-            <div className="text-xs font-medium text-gray-500 mb-2">Quick Status</div>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => onStatusChange(table.id, 'available')} className="px-3 py-2 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100">Mark Available</button>
-              <button onClick={() => onStatusChange(table.id, 'occupied')} className="px-3 py-2 rounded-lg text-sm border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100">Mark Occupied</button>
-              <button onClick={() => onStatusChange(table.id, 'reserved')} className="px-3 py-2 rounded-lg text-sm border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">Mark Reserved</button>
-              <button onClick={() => onStatusChange(table.id, 'cleaning')} className="px-3 py-2 rounded-lg text-sm border border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100">Mark Cleaning</button>
+            <p className="text-xs font-medium text-gray-500 mb-3">Change Status</p>
+            <div className="flex gap-1">
+              {["available", "occupied", "reserved", "cleaning"].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => {
+                    onStatusChange(table.id, status as TableStatus);
+                    onClose();
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    table.status === status
+                      ? 'bg-black text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Primary CTA */}
-          <div className="space-y-2">
-            {table.status === 'available' && (
-              <button
-                onClick={() => { window.location.href = `/dashboard/new-order?table=${table.id}`; }}
-                className="w-full bg-emerald-600 text-white px-4 py-2.5 rounded-lg hover:bg-emerald-700"
+          {/* CTAs */}
+          <div className="space-y-3">
+            {table.status === "available" && (
+              <Button
+                className="w-full"
+                onClick={() =>
+                  (window.location.href = `/dashboard/new-order?table=${table.id}`)
+                }
               >
                 Seat Now
-              </button>
+              </Button>
             )}
-            {table.status === 'occupied' && table.orders?.[0] && (
+
+            {currentOrder && (
               <div className="flex gap-2">
-                <button
-                  onClick={() => onOpenPayment(table.orders![0])}
-                  disabled={table.orders[0].paymentStatus === 'paid'}
-                  className={`flex-1 rounded-lg px-4 py-2.5 ${
-                    table.orders[0].paymentStatus === 'paid'
-                      ? 'bg-green-600 text-white cursor-not-allowed'
-                      : 'bg-sky-600 text-white hover:bg-sky-700'
-                  }`}
+                <Button
+                  className="flex-1"
+                  onClick={() => onOpenPayment(currentOrder)}
+                  disabled={currentOrder.paymentStatus === "paid"}
                 >
-                  {table.orders[0].paymentStatus === 'paid' ? 'Bill Paid ✓' : 'Pay Bill'}
-                </button>
-                {table.orders[0].paymentStatus !== 'paid' && (
-                  <button
-                    onClick={() => onAmendOrder(table.orders![0])}
-                    className="flex-1 bg-gray-100 text-gray-800 px-4 py-2.5 rounded-lg hover:bg-gray-200 border border-gray-300"
+                  {currentOrder.paymentStatus === "paid" ? "Bill Paid ✓" : "Pay Bill"}
+                </Button>
+                {currentOrder.paymentStatus !== "paid" && (
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => onAmendOrder(currentOrder)}
                   >
                     Amend Order
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
-            <button onClick={onEdit} className="w-full bg-gray-100 text-gray-800 px-4 py-2.5 rounded-lg hover:bg-gray-200 border border-gray-300">Edit Table</button>
+
           </div>
         </div>
       </div>

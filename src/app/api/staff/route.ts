@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseDb } from "@/lib/database/supabase";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const staff = await supabaseDb.getStaff();
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+    const role = searchParams.get('role');
+    const isActive = searchParams.get('isActive');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+
+    const filters = {
+      search: search || undefined,
+      role: role || undefined,
+      isActive: isActive ? isActive === 'true' : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    };
+
+    const staff = await supabaseDb.getStaff(filters);
     
     // Return the expected format with staff array and pagination
     return NextResponse.json({

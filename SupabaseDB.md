@@ -107,8 +107,8 @@ CREATE TABLE public.order_items (
   taxRate double precision NOT NULL DEFAULT 0.0,
   taxAmount double precision NOT NULL DEFAULT 0.0,
   CONSTRAINT order_items_pkey PRIMARY KEY (id),
-  CONSTRAINT order_items_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id),
-  CONSTRAINT order_items_productId_fkey FOREIGN KEY (productId) REFERENCES public.products(id)
+  CONSTRAINT order_items_productId_fkey FOREIGN KEY (productId) REFERENCES public.products(id),
+  CONSTRAINT order_items_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id)
 );
 CREATE TABLE public.orders (
   id text NOT NULL,
@@ -226,10 +226,10 @@ CREATE TABLE public.refunds (
   createdAt timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt timestamp without time zone NOT NULL,
   CONSTRAINT refunds_pkey PRIMARY KEY (id),
-  CONSTRAINT refunds_cashierId_fkey FOREIGN KEY (cashierId) REFERENCES public.users(id),
-  CONSTRAINT refunds_transactionId_fkey FOREIGN KEY (transactionId) REFERENCES public.transactions(id),
   CONSTRAINT refunds_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id),
-  CONSTRAINT refunds_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id)
+  CONSTRAINT refunds_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id),
+  CONSTRAINT refunds_transactionId_fkey FOREIGN KEY (transactionId) REFERENCES public.transactions(id),
+  CONSTRAINT refunds_cashierId_fkey FOREIGN KEY (cashierId) REFERENCES public.users(id)
 );
 CREATE TABLE public.reservations (
   id text NOT NULL,
@@ -263,7 +263,24 @@ CREATE TABLE public.settings (
   key text NOT NULL,
   value text NOT NULL,
   description text,
-  updatedAt timestamp without time zone NOT NULL,
+  updated_at timestamp without time zone NOT NULL,
+  restaurantname text,
+  restaurantid text,
+  storeid text,
+  addresslineone text,
+  addresslinetwo text,
+  restaurantcity text,
+  restaurantpin text,
+  restaurantphone text,
+  restaurantemail text,
+  restaurantwebsite text,
+  restaurantgstrate double precision DEFAULT 0.0,
+  restaurantgst text,
+  restauranttaxid text,
+  restaurantfssai text,
+  restaurantpolicy text,
+  restaurantfooternote text,
+  restaurantfooternoteextra text,
   CONSTRAINT settings_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.staff (
@@ -357,8 +374,8 @@ CREATE TABLE public.transactions (
   updatedAt timestamp without time zone NOT NULL,
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
   CONSTRAINT transactions_customerId_fkey FOREIGN KEY (customerId) REFERENCES public.customers(id),
-  CONSTRAINT transactions_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id),
-  CONSTRAINT transactions_cashierId_fkey FOREIGN KEY (cashierId) REFERENCES public.users(id)
+  CONSTRAINT transactions_cashierId_fkey FOREIGN KEY (cashierId) REFERENCES public.users(id),
+  CONSTRAINT transactions_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id)
 );
 CREATE TABLE public.users (
   id text NOT NULL,

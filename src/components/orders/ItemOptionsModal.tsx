@@ -13,12 +13,38 @@ interface ItemOptionsModalProps {
   open: boolean;
   onConfirm: (selectedAddons: CartAddon[], selectedVariant?: CartVariant | null) => void;
   onClose: () => void;
+  // New props for editing existing items
+  existingAddons?: CartAddon[];
+  existingVariant?: CartVariant | null;
+  isEditing?: boolean;
 }
 
-export default function ItemOptionsModal({ product, addons, variants, open, onConfirm, onClose }: ItemOptionsModalProps) {
+export default function ItemOptionsModal({ 
+  product, 
+  addons, 
+  variants, 
+  open, 
+  onConfirm, 
+  onClose, 
+  existingAddons = [], 
+  existingVariant = null, 
+  isEditing = false 
+}: ItemOptionsModalProps) {
   const { format } = useCurrency();
   const [selectedAddonIds, setSelectedAddonIds] = useState<Set<string>>(new Set());
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  // Initialize state with existing values when editing
+  React.useEffect(() => {
+    if (isEditing && open) {
+      setSelectedAddonIds(new Set(existingAddons.map(addon => addon.id)));
+      setSelectedVariantId(existingVariant?.id || null);
+    } else if (!isEditing && open) {
+      // Reset to empty state for new items
+      setSelectedAddonIds(new Set());
+      setSelectedVariantId(null);
+    }
+  }, [isEditing, open, existingAddons, existingVariant]);
 
   const toggleAddon = (id: string) => {
     setSelectedAddonIds(prev => {
@@ -48,7 +74,9 @@ export default function ItemOptionsModal({ product, addons, variants, open, onCo
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-96 max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Add to Order</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            {isEditing ? "Edit Item Options" : "Add to Order"}
+          </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors duration-200">
             <X className="h-5 w-5" />
           </button>
@@ -134,7 +162,7 @@ export default function ItemOptionsModal({ product, addons, variants, open, onCo
             onClick={() => onConfirm(selectedAddons, selectedVariant)}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
           >
-            Add to Order
+            {isEditing ? "Update Item" : "Add to Order"}
           </button>
         </div>
       </div>

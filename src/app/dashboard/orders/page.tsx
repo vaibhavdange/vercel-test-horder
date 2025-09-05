@@ -503,7 +503,9 @@ export default function OrdersPage() {
         totalPrice: item.totalPrice,
         addons: [],
         variant: undefined,
-        customizationNotes: item.customizationNotes || ''
+        customizationNotes: item.customizationNotes || '',
+        // Store the raw product name for parsing later
+        rawProductName: item.productName
       }))
     };
     

@@ -892,6 +892,7 @@ export class SupabaseDatabase {
             )
           )
         `)
+        .order('createdAt', { referencedTable: 'orders', ascending: false })
         .order('tableNumber', { ascending: true });
 
       if (error) throw error;
@@ -1011,25 +1012,61 @@ export class SupabaseDatabase {
   }
 
   // Staff
-  async getStaff() {
+  async getStaff(filters?: {
+    search?: string;
+    role?: string;
+    isActive?: boolean;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
     try {
-      const { data, error } = await this.client
+      let query = this.client
         .from('staff')
         .select(`
           *,
           users (*)
-        `)
-        .order('createdAt', { ascending: false });
+        `);
+
+      // Apply filters
+      if (filters?.search) {
+        query = query.or(`users.fullName.ilike.%${filters.search}%,users.email.ilike.%${filters.search}%,employeeId.ilike.%${filters.search}%`);
+      }
+
+      if (filters?.role) {
+        // For now, we'll filter after fetching the data since Supabase join filtering can be tricky
+        // TODO: Optimize this to filter at database level
+      }
+
+      if (filters?.isActive !== undefined) {
+        query = query.eq('isActive', filters.isActive);
+      }
+
+      if (filters?.dateFrom) {
+        query = query.gte('createdAt', filters.dateFrom);
+      }
+
+      if (filters?.dateTo) {
+        query = query.lte('createdAt', filters.dateTo);
+      }
+
+      const { data, error } = await query.order('createdAt', { ascending: false });
 
       if (error) throw error;
       
       // Transform the data to match frontend expectations
-      const transformedData = (data || []).map((staff: any) => ({
+      let transformedData = (data || []).map((staff: any) => ({
         ...staff,
         user: staff.users,
         // Remove the plural version to avoid confusion
         users: undefined
       }));
+
+      // Apply role filter after data transformation
+      if (filters?.role) {
+        transformedData = transformedData.filter((staff: any) => 
+          staff.user && staff.user.role === filters.role
+        );
+      }
       
       return transformedData;
     } catch (error) {

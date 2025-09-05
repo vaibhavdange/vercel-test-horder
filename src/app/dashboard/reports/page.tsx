@@ -12,11 +12,12 @@ import {
   Package, 
   Filter,
   Download,
-  Eye
+  Eye,
+  X
 } from "lucide-react";
 import { format } from "date-fns";
 import { useCurrency } from "@/hooks/useCurrency";
-import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
+// import DevelopmentNotice from '@/components/ui/DevelopmentNotice';
 
 export default function ReportsPage() {
   const [reportType, setReportType] = useState<ReportFilters['type']>('sales');
@@ -54,10 +55,20 @@ export default function ReportsPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-full">
+        {/* Page Header */}
+        <div className="bg-white border-b border-gray-100 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+              <p className="text-sm text-gray-600 mt-1">Generate and analyze business reports</p>
+            </div>
+          </div>
+        </div>
         <div className="flex-1 p-6 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Generating report...</p>
+            <p className="text-gray-600 text-lg font-medium">Generating report...</p>
+            <p className="text-sm text-gray-400 mt-2">Please wait while we process your request</p>
           </div>
         </div>
       </div>
@@ -67,12 +78,25 @@ export default function ReportsPage() {
   if (error) {
     return (
       <div className="flex flex-col h-full">
+        {/* Page Header */}
+        <div className="bg-white border-b border-gray-100 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+              <p className="text-sm text-gray-600 mt-1">Generate and analyze business reports</p>
+            </div>
+          </div>
+        </div>
         <div className="flex-1 p-6 flex items-center justify-center">
-          <div className="text-center text-red-600">
-            <p>Failed to generate report</p>
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <X className="h-8 w-8 text-red-600" />
+            </div>
+            <p className="text-lg font-medium text-red-600 mb-2">Failed to generate report</p>
+            <p className="text-sm text-gray-500 mb-4">There was an error processing your request</p>
             <button 
               onClick={() => window.location.reload()} 
-              className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              className="px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors duration-200 text-sm font-medium"
             >
               Retry
             </button>
@@ -84,15 +108,24 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Page Header */}
+      <div className="bg-white border-b border-gray-100 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+            <p className="text-sm text-gray-600 mt-1">Generate and analyze business reports</p>
+          </div>
+        </div>
+      </div>
       
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
         {/* Report Type Selector */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Select Report Type</h2>
+            <h2 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900">Select Report Type</h2>
             <button
               onClick={handleExport}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
+              className="px-4 py-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors duration-200 flex items-center space-x-2 text-sm font-medium"
             >
               <Download className="h-4 w-4" />
               <span>Export</span>
@@ -106,10 +139,10 @@ export default function ReportsPage() {
                 <button
                   key={type.id}
                   onClick={() => setReportType(type.id as ReportFilters['type'])}
-                  className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                  className={`p-4 rounded-xl border-2 transition-all duration-200 hover:scale-105 ${
                     reportType === type.id
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-green-200 bg-green-50 text-green-700 shadow-soft'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
                   <div className="text-center">
@@ -124,7 +157,7 @@ export default function ReportsPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Filters</h3>
+          <h3 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900 mb-4">Report Filters</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Date From</label>
@@ -132,7 +165,7 @@ export default function ReportsPage() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               />
             </div>
             
@@ -142,7 +175,7 @@ export default function ReportsPage() {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               />
             </div>
 
@@ -151,7 +184,7 @@ export default function ReportsPage() {
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
               >
                 <option value="">All Categories</option>
                 {categories?.map((category) => (
@@ -166,7 +199,7 @@ export default function ReportsPage() {
 
         {/* Report Content */}
         <div className="bg-white rounded-xl p-6 shadow-soft border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <h3 className="text-base sm:text-lg min-[801px]:text-xl font-semibold text-gray-900 mb-4">
             {reportTypes.find(t => t.id === reportType)?.name} - {format(new Date(dateFrom), 'MMM dd')} to {format(new Date(dateTo), 'MMM dd, yyyy')}
           </h3>
           
@@ -181,14 +214,15 @@ export default function ReportsPage() {
               {report.reportType === 'staff' && <StaffReportDisplay report={report} />}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Filter className="h-16 w-16 mx-auto mb-4" />
-              <p>Select filters and generate a report</p>
+            <div className="text-center py-12 text-gray-500">
+              <Filter className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg font-medium">Select filters and generate a report</p>
+              <p className="text-sm text-gray-400 mt-2">Choose a report type and date range to get started</p>
             </div>
           )}
         </div>
       </div>
-      <DevelopmentNotice />
+      {/* <DevelopmentNotice /> */}
     </div>
   );
 }
@@ -303,45 +337,50 @@ function SalesReportDisplay({ report, formatCurrency }: { report: any, formatCur
 // Placeholder components for other report types
 function InventoryReportDisplay({ report }: { report: any }) {
   return (
-    <div className="text-center py-8 text-gray-500">
-      <Package className="h-16 w-16 mx-auto mb-4" />
-      <p>Inventory report display coming soon</p>
+    <div className="text-center py-12 text-gray-500">
+      <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+      <p className="text-lg font-medium">Inventory report display coming soon</p>
+      <p className="text-sm text-gray-400 mt-2">This feature is under development</p>
     </div>
   );
 }
 
 function CustomerReportDisplay({ report }: { report: any }) {
   return (
-    <div className="text-center py-8 text-gray-500">
-      <Users className="h-16 w-16 mx-auto mb-4" />
-      <p>Customer report display coming soon</p>
+    <div className="text-center py-12 text-gray-500">
+      <Users className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+      <p className="text-lg font-medium">Customer report display coming soon</p>
+      <p className="text-sm text-gray-400 mt-2">This feature is under development</p>
     </div>
   );
 }
 
 function FinancialReportDisplay({ report, formatCurrency }: { report: any, formatCurrency: (value: number) => string }) {
   return (
-    <div className="text-center py-8 text-gray-500">
-      <DollarSign className="h-16 w-16 mx-auto mb-4" />
-      <p>Financial report display coming soon</p>
+    <div className="text-center py-12 text-gray-500">
+      <DollarSign className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+      <p className="text-lg font-medium">Financial report display coming soon</p>
+      <p className="text-sm text-gray-400 mt-2">This feature is under development</p>
     </div>
   );
 }
 
 function ProductReportDisplay({ report, formatCurrency }: { report: any, formatCurrency: (value: number) => string }) {
   return (
-    <div className="text-center py-8 text-gray-500">
-      <BarChart3 className="h-16 w-16 mx-auto mb-4" />
-      <p>Product report display coming soon</p>
+    <div className="text-center py-12 text-gray-500">
+      <BarChart3 className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+      <p className="text-lg font-medium">Product report display coming soon</p>
+      <p className="text-sm text-gray-400 mt-2">This feature is under development</p>
     </div>
   );
 }
 
 function StaffReportDisplay({ report }: { report: any }) {
   return (
-    <div className="text-center py-8 text-gray-500">
-      <Users className="h-16 w-16 mx-auto mb-4" />
-      <p>Staff report display coming soon</p>
+    <div className="text-center py-12 text-gray-500">
+      <Users className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+      <p className="text-lg font-medium">Staff report display coming soon</p>
+      <p className="text-sm text-gray-400 mt-2">This feature is under development</p>
     </div>
   );
 }

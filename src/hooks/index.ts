@@ -10,6 +10,7 @@ export { useHighlight } from './use-highlight';
 export { useStockItems, useCreateStockItem, useUpdateStockItem, useDeleteStockItem } from './use-ingredients';
 export { useOrderCalculations } from './use-order-calculations';
 export { useOrders } from './use-orders';
+export { usePayroll } from './use-payroll';
 export { useProducts } from './use-products';
 export { useRecipes } from './use-recipes';
 export { useReport } from './use-reports';

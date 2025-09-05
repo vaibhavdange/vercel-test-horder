@@ -22,7 +22,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useAnalytics } from "@/hooks/use-analytics";
 import ItemOptionsModal from "@/components/orders/ItemOptionsModal";
 import { CartItem, CartAddon, CartVariant } from "@/types/cart";
-import { addToCart, updateCartItemQuantity, removeCartItem, calculateCartTotals } from "@/lib/utils/cart";
+import { addToCart, updateCartItemQuantity, removeCartItem, calculateCartTotals, updateCartItemOptions, reconstructCartItemFromOrderItem } from "@/lib/utils/cart";
 import { printBillFromOrderAuto } from "@/lib/print/bill";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -66,6 +66,7 @@ export default function NewOrderPage() {
   // Combined Options Modal State
   const [showItemOptionsModal, setShowItemOptionsModal] = useState(false);
   const [selectedProductForModal, setSelectedProductForModal] = useState<MenuItem | null>(null);
+  const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
@@ -233,8 +234,9 @@ export default function NewOrderPage() {
           
           console.log('Amendment mode set. TableId:', data.tableId, 'OrderType:', data.orderType);
           
-          // Load existing order items
+          // Load existing order items - we'll reconstruct them after products are loaded
           if (data.existingItems && data.existingItems.length > 0) {
+            // Store the raw items for reconstruction later
             setOrderItems(data.existingItems);
           }
           
@@ -247,6 +249,23 @@ export default function NewOrderPage() {
       }
     }
   }, []);
+
+  // Reconstruct cart items when products are loaded and we're in amendment mode
+  useEffect(() => {
+    if (amendmentMode && allProducts && allProducts.length > 0 && orderItems.length > 0) {
+      // Check if the first item has rawProductName (indicating it needs reconstruction)
+      const needsReconstruction = orderItems[0] && 'rawProductName' in orderItems[0];
+      
+      if (needsReconstruction) {
+        console.log('Reconstructing cart items with products data...');
+        const reconstructedItems = orderItems.map((item: any) => 
+          reconstructCartItemFromOrderItem(item, allProducts)
+        );
+        setOrderItems(reconstructedItems);
+        console.log('Reconstructed items:', reconstructedItems);
+      }
+    }
+  }, [amendmentMode, allProducts, orderItems.length]);
 
   // Handle responsive behavior for sidebar
   useEffect(() => {
@@ -443,6 +462,39 @@ export default function NewOrderPage() {
     }, 2000);
   };
 
+  const editItemOptions = (cartItem: CartItem) => {
+    const menuItem = findMenuItemById(cartItem.productId);
+    if (menuItem) {
+      setEditingCartItem(cartItem);
+      setSelectedProductForModal(menuItem);
+      setShowItemOptionsModal(true);
+    }
+  };
+
+  const updateItemOptions = (addons: CartAddon[], variant?: CartVariant | null) => {
+    if (editingCartItem && selectedProductForModal) {
+      const newCart = updateCartItemOptions(orderItems, editingCartItem.key, addons, selectedProductForModal, variant);
+      setOrderItems(newCart);
+      
+      // Show a brief success message
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMsg.textContent = `Item options updated!`;
+      document.body.appendChild(successMsg);
+      
+      setTimeout(() => {
+        if (document.body.contains(successMsg)) {
+          document.body.removeChild(successMsg);
+        }
+      }, 2000);
+    }
+    
+    // Reset editing state
+    setEditingCartItem(null);
+    setSelectedProductForModal(null);
+    setShowItemOptionsModal(false);
+  };
+
   const updateItemCustomizationNotes = (itemKey: string, notes: string) => {
     const newCart = orderItems.map((item: CartItem) =>
       item.key === itemKey
@@ -583,11 +635,7 @@ export default function NewOrderPage() {
           quantity: item.quantity,
           unitPrice: item.basePrice,
           totalPrice: item.totalPrice,
-          customizationNotes: [
-            item.customizationNotes?.trim() || '',
-            ...(item.addons && item.addons.length > 0 ? [`Add-ons: ${item.addons.map((e) => `${e.name}`).join(', ')}`] : []),
-            ...(item.variant ? [`Variant: ${item.variant.name}`] : [])
-          ].filter(Boolean).join(' | '),
+          customizationNotes: item.customizationNotes?.trim() || '',
         })),
       };
 
@@ -606,11 +654,7 @@ export default function NewOrderPage() {
               quantity: item.quantity,
               unitPrice: item.basePrice,
               totalPrice: item.totalPrice,
-              customizationNotes: [
-                item.customizationNotes?.trim() || '',
-                ...(item.addons && item.addons.length > 0 ? [`Add-ons: ${item.addons.map((e) => `${e.name}`).join(', ')}`] : []),
-                ...(item.variant ? [`Variant: ${item.variant.name}`] : [])
-              ].filter(Boolean).join(' | ')
+              customizationNotes: item.customizationNotes?.trim() || ''
             })),
             subtotal: getSubtotal(),
             taxAmount: getTax(),
@@ -1337,7 +1381,7 @@ export default function NewOrderPage() {
             ) : (
               <div className="space-y-4">
                 {orderItems.map((item, index) => (
-                  <div key={item.key} className="bg-gray-50 rounded-lg p-3">
+                  <div key={item.key} className="border-b border-gray-200 pb-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
                         <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
@@ -1345,37 +1389,43 @@ export default function NewOrderPage() {
                         </span>
                         <h4 className="font-medium text-gray-900">{item.productName}</h4>
                       </div>
-                      <button
-                        onClick={() => removeItem(item.key)}
-                        className="text-red-400 hover:text-red-600 transition-colors duration-200"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="text-right">
+                        <p className="font-medium text-gray-900">{format(item.totalPrice)}</p>
+                      </div>
                     </div>
                     
-                    {/* Customization Notes Display */}
-                    {item.customizationNotes && (
-                      <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-                        <span className="font-medium">Notes:</span> {item.customizationNotes}
-                      </div>
-                    )}
-                    
-                    {/* Add-ons and Variants Display */}
+                    {/* Add-ons and Variants Display - Clickable Inline */}
                     {(item.addons && item.addons.length > 0) || item.variant ? (
-                      <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                      <div 
+                        className="text-xs text-blue-700 cursor-pointer hover:text-blue-800 transition-colors duration-100 mb-2"
+                        onClick={() => editItemOptions(item)}
+                        title="Click to edit add-ons and variants"
+                      >
                         {item.addons && item.addons.length > 0 && (
-                          <div className="mb-1">
-                            <span className="font-medium">Add-ons:</span> {item.addons.map(e => e.name).join(', ')}
-                          </div>
+                          <span className="font-medium">Add-ons:</span>
+                        )}
+                        {item.addons && item.addons.length > 0 && (
+                          <span> {item.addons.map(e => e.name).join(', ')}</span>
+                        )}
+                        {item.addons && item.addons.length > 0 && item.variant && (
+                          <span> • </span>
                         )}
                         {item.variant && (
-                          <div>
-                            <span className="font-medium">Variant:</span> {item.variant.name}
-                          </div>
+                          <span className="font-medium">Variant:</span>
+                        )}
+                        {item.variant && (
+                          <span> {item.variant.name}</span>
                         )}
                       </div>
                     ) : null}
-                    
+                                        
+                    {/* Customization Notes Display */}
+                    {item.customizationNotes && (
+                      <div className="text-xs text-amber-600 mb-2">
+                        <span className="font-medium">Notes:</span> {item.customizationNotes}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
                         <button
@@ -1392,28 +1442,31 @@ export default function NewOrderPage() {
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-gray-900">{format(item.totalPrice)}</p>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => {
+                            const menuItem = findMenuItemById(item.productId);
+                            if (menuItem) {
+                              setSelectedItem(menuItem);
+                              setCustomizationNotes(item.customizationNotes || "");
+                              setEditingItemId(item.key);
+                              setShowCustomizationModal(true);
+                            }
+                          }}
+                          className="p-1 text-gray-400 hover:text-green-600 transition-colors duration-200"
+                          title="Add/edit customization notes"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => removeItem(item.key)}
+                          className="p-1 text-red-400 hover:text-red-600 transition-colors duration-200"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-end">
-                      <button
-                        onClick={() => {
-                          const menuItem = findMenuItemById(item.productId);
-                          if (menuItem) {
-                            setSelectedItem(menuItem);
-                            setCustomizationNotes(item.customizationNotes || "");
-                            setEditingItemId(item.key);
-                            setShowCustomizationModal(true);
-                          }
-                        }}
-                        className="p-1 text-gray-400 hover:text-green-600 transition-colors duration-200"
-                        title="Add/edit customization notes"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1804,14 +1857,25 @@ export default function NewOrderPage() {
           variants={selectedProductForModal.variants || []}
           open={showItemOptionsModal}
           onConfirm={(selectedAddons, selectedVariant) => {
-            addToOrder(selectedProductForModal, selectedAddons, selectedVariant || undefined);
-            setShowItemOptionsModal(false);
-            setSelectedProductForModal(null);
+            if (editingCartItem) {
+              // Editing existing item
+              updateItemOptions(selectedAddons, selectedVariant);
+            } else {
+              // Adding new item
+              addToOrder(selectedProductForModal, selectedAddons, selectedVariant || undefined);
+              setShowItemOptionsModal(false);
+              setSelectedProductForModal(null);
+            }
           }}
           onClose={() => {
             setShowItemOptionsModal(false);
             setSelectedProductForModal(null);
+            setEditingCartItem(null);
           }}
+          // Pass editing props
+          existingAddons={editingCartItem?.addons || []}
+          existingVariant={editingCartItem?.variant || null}
+          isEditing={!!editingCartItem}
         />
       )}
 
