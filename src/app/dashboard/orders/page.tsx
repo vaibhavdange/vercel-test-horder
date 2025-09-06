@@ -582,7 +582,7 @@ export default function OrdersPage() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
           {/* Status Tabs */}
           {/* Mobile horizontal scroll */}
-          <div className="min-[801px]:hidden -mx-2 overflow-x-auto">
+          <div className="lg:hidden -mx-2 overflow-x-auto">
             <div className="flex items-center gap-2 px-2 snap-x snap-mandatory">
               {statusOptions.map((status) => (
                 <button
@@ -600,7 +600,7 @@ export default function OrdersPage() {
             </div>
           </div>
           {/* Desktop wrap */}
-          <div className="hidden min-[801px]:flex flex-wrap gap-2">
+          <div className="hidden lg:flex flex-wrap gap-2">
             {statusOptions.map((status) => (
               <button
                 key={status}
@@ -744,35 +744,35 @@ export default function OrdersPage() {
                 })}`}
               </div>
             )}
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 min-[801px]:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 md:gap-6 max-w-full">
               {filteredOrders.map((order) => (
-              <div id={`order-card-${order.id}`} key={order.id} className={`bg-white rounded-xl p-4 sm:p-5 min-[801px]:p-6 shadow-soft border border-gray-100 hover:shadow-medium transition-shadow duration-200 flex flex-col ${highlightOrderId === order.id ? 'ring-2 ring-blue-500' : ''}`}>
+              <div id={`order-card-${order.id}`} key={order.id} className={`bg-white rounded-xl p-3 sm:p-4 lg:p-5 shadow-soft border border-gray-100 hover:shadow-medium transition-shadow duration-200 flex flex-col max-w-full w-full ${highlightOrderId === order.id ? 'ring-2 ring-blue-500' : ''}`}>
                 {/* Order Header - Compact Top Bar */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="text-lg font-bold text-gray-900">
+                <div className="flex items-center justify-between mb-3 min-w-0">
+                  <div className="flex items-center space-x-2 min-w-0 flex-1">
+                    <div className="text-base sm:text-lg font-bold text-gray-900 truncate">
                       {order.kotNumber ? formatKOTNumber(order.kotNumber) : `#${order.orderNumber.split('-')[2]}`}
                     </div>
                     {/* Order Type & Table Info */}
-                    <span className="inline-flex items-center space-x-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                    <span className="inline-flex items-center space-x-1 text-[10px] sm:text-xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full whitespace-nowrap flex-shrink-0">
                       {order.orderType === "takeaway" ? (
                         <>
-                          <Truck className="h-3 w-3" />
+                          <Truck className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           <span>Takeaway</span>
                         </>
                       ) : order.orderType === "dine-in" && order.tableNumber ? (
                         <>
-                          <Users className="h-3 w-3" />
+                          <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           <span>Table {order.tableNumber}</span>
                         </>
                       ) : order.orderType === "delivery" ? (
                         <>
-                          <Truck className="h-3 w-3" />
+                          <Truck className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           <span>Delivery</span>
                         </>
                       ) : (
                         <>
-                          <Users className="h-3 w-3" />
+                          <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                           <span>Dine-in</span>
                         </>
                       )}
@@ -780,7 +780,7 @@ export default function OrdersPage() {
                   </div>
                   
                   {/* Order Status + Timer - Compact */}
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
                     {/* Status Display - Show timer for completed orders instead of "Completed" */}
                                          {order.status === "completed" ? (
                        <div className="flex items-center space-x-1">
@@ -794,10 +794,10 @@ export default function OrdersPage() {
                        </div>
                     ) : (
                     <div className="flex items-center space-x-2">
-                      {order.status === "ready" && <CheckCircle className="h-3 w-3 text-blue-600" />}
-                      {order.status === "in-process" && <Clock className="h-3 w-3 text-orange-600" />}
-                      {order.status === "pending" && <Clock className="h-3 w-3 text-gray-600" />}
-                      <span className={`text-xs font-medium ${
+                      {order.status === "ready" && <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />}
+                      {order.status === "in-process" && <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />}
+                      {order.status === "pending" && <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-gray-600" />}
+                      <span className={`text-[10px] sm:text-xs font-medium ${
                         order.status === "ready" ? "text-blue-600" :
                         order.status === "in-process" ? "text-orange-600" :
                         "text-gray-600"
@@ -813,7 +813,7 @@ export default function OrdersPage() {
                     
                     {/* Amendment Indicator */}
                     {isOrderAmended(order) && (
-                      <span className="text-xs font-medium text-purple-600 opacity-80">✏️ Amended</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-purple-600 opacity-80">✏️ Amended</span>
                     )}
                     
                                          {/* Kitchen Timer - Only show for non-completed orders */}
@@ -832,116 +832,118 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Customer Info - Compact Single Line */}
-                <div className="mb-3 sm:mb-4 p-2 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between text-[11px] sm:text-xs">
-                    <div className="flex items-center space-x-3">
-                      <span className="font-semibold text-gray-900">{order.customerName || (order.customerId ? "Customer" : "Walk-in Customer")}</span>
+                <div className="mb-2 sm:mb-3 p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between text-[10px] sm:text-xs min-w-0">
+                    <div className="flex items-center space-x-2 min-w-0 flex-1">
+                      <span className="font-semibold text-gray-900 truncate text-[10px] sm:text-xs">{order.customerName || (order.customerId ? "Customer" : "Walk-in Customer")}</span>
                       {order.customerPhone && (
-                        <span className="text-gray-600">• {order.customerPhone}</span>
+                        <span className="text-gray-600 whitespace-nowrap flex-shrink-0 text-[10px] sm:text-xs">• {order.customerPhone}</span>
                       )}
                     </div>
-                    <span className="text-gray-500">{formatDate(order.createdAt)} • {formatTime(order.createdAt)}</span>
+                    <span className="text-gray-500 whitespace-nowrap flex-shrink-0 ml-1 sm:ml-2 text-[10px] sm:text-xs">{formatDate(order.createdAt)} • {formatTime(order.createdAt)}</span>
                   </div>
                 </div>
 
                 {/* Order Items - Prominent & Clean with Typewriter Font */}
-                <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg">
-                  <div className="grid grid-cols-12 gap-2 text-xs sm:text-sm font-medium text-gray-700 border-b border-gray-200 pb-1 mb-2">
+                <div className="mb-2 sm:mb-3 p-2 sm:p-2.5 bg-white border border-gray-200 rounded-lg min-w-0">
+                  <div className="grid grid-cols-12 gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium text-gray-700 border-b border-gray-200 pb-1 mb-1.5">
                     <div className="col-span-2">Qty</div>
-                    <div className="col-span-6">Item</div>
-                    <div className="col-span-4 text-amber-600">Notes</div>
+                    <div className="col-span-7">Item</div>
+                    <div className="col-span-3 text-amber-600">Notes</div>
                   </div>
-                  {(order.orderItems || []).map((item: any, index: number) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 py-1">
-                      <div className="col-span-2 text-gray-600 font-mono text-xs sm:text-sm">{item.quantity}</div>
-                      <div className="col-span-6 text-gray-900 font-mono text-xs sm:text-sm leading-tight">{item.productName}</div>
-                      <div className="col-span-4 text-amber-600 font-mono text-xs sm:text-sm">
-                        {formatNotesForKOT(item.customizationNotes)}
+                  <div className="space-y-0.5 sm:space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                    {(order.orderItems || []).map((item: any, index: number) => (
+                      <div key={index} className="grid grid-cols-12 gap-2 py-1 min-w-0">
+                        <div className="col-span-2 text-gray-600 font-mono text-[10px] sm:text-xs flex-shrink-0">{item.quantity}</div>
+                        <div className="col-span-7 text-gray-900 font-mono text-[10px] sm:text-xs leading-tight truncate" title={item.productName}>{item.productName}</div>
+                        <div className="col-span-3 text-amber-600 font-mono text-[10px] sm:text-xs truncate" title={formatNotesForKOT(item.customizationNotes)}>
+                          {formatNotesForKOT(item.customizationNotes)}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
                 {/* Action Buttons - Positioned at bottom */}
-                <div className="mt-auto pt-3">
-                  <div className="flex items-center justify-between w-full space-x-3">
+                <div className="mt-auto pt-2">
+                  <div className="flex items-center justify-between w-full space-x-1 sm:space-x-2 min-w-0">
                     {/* Progressive Status Button */}
                     <button 
                       onClick={() => handleProgressiveStatusUpdate(order)}
                       disabled={order.status === "completed" || order.status === "cancelled"}
-                      className={`p-2.5 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`p-1.5 sm:p-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${
                         order.status === "completed" || order.status === "cancelled"
                           ? "text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed"
                           : "text-gray-800 bg-gray-200 hover:bg-gray-300 border border-gray-300 hover:border-gray-400"
                       }`}
                       title={getNextStatusInfo(order.status).buttonText}
                     >
-                      {getNextStatusInfo(order.status).icon}
+                      <div className="h-3 w-3 sm:h-4 sm:w-4">{getNextStatusInfo(order.status).icon}</div>
                     </button>
                     
                     {/* Amend Order Button */}
                     <button 
                       onClick={() => handleAmendOrder(order)}
                       disabled={order.status === "completed" || order.status === "cancelled"}
-                      className={`p-2.5 rounded-lg transition-colors duration-200 border ${
+                      className={`p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border flex-shrink-0 ${
                         order.status === "completed" || order.status === "cancelled"
                           ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
                           : "text-gray-700 hover:text-gray-900 hover:bg-gray-100 border-gray-300 hover:border-gray-400"
                       }`}
                       title="Amend Order - Add/Remove Items"
                     >
-                      <PlusCircle className="h-4 w-4" />
+                      <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                     
                     {/* Payment/Refund Action */}
                     {order.paymentStatus === "paid" ? (
                       <button 
                         onClick={() => handleRefund(order)}
-                        className="p-2.5 rounded-lg transition-colors duration-200 border text-gray-800 bg-gray-200 hover:bg-gray-300 border-gray-300 hover:border-gray-400"
+                        className="p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border text-gray-800 bg-gray-200 hover:bg-gray-300 border-gray-300 hover:border-gray-400 flex-shrink-0"
                         title="Process Refund"
                       >
-                        <RotateCcw className="h-4 w-4" />
+                        <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                     ) : order.paymentStatus === "refunded" ? (
                       <button
                         onClick={() => {}}
                         disabled
-                        className="p-2.5 rounded-lg transition-colors duration-200 border text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
+                        className="p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed flex-shrink-0"
                         title="Refunded"
                       >
-                        <RotateCcw className="h-4 w-4" />
+                        <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                     ) : (
                       <button 
                         onClick={() => handlePayment(order)}
-                        className="p-2.5 rounded-lg transition-colors duration-200 border text-gray-700 hover:text-gray-900 hover:bg-gray-100 border-gray-300 hover:border-gray-400"
+                        className="p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border text-gray-700 hover:text-gray-900 hover:bg-gray-100 border-gray-300 hover:border-gray-400 flex-shrink-0"
                         title="Process Payment"
                       >
-                        <CreditCard className="h-4 w-4" />
+                        <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
                       </button>
                     )}
                     
                     {/* Print Bill Button */}
                     <button 
                       onClick={() => handlePrintBill(order)}
-                      className="p-2.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200 border border-gray-300 hover:border-gray-400"
+                      className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200 border border-gray-300 hover:border-gray-400 flex-shrink-0"
                       title="Print Bill"
                     >
-                      <Printer className="h-4 w-4" />
+                      <Printer className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                     
                     {/* Cancel Order Button */}
                     <button 
                       onClick={() => handleCancelOrder(order.id)}
                       disabled={order.status === "cancelled" || order.status === "completed"}
-                      className={`p-2.5 rounded-lg transition-colors duration-200 border disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${
                         order.status === "cancelled" || order.status === "completed"
                           ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
                           : "text-gray-800 hover:text-gray-900 hover:bg-gray-200 border-gray-400 hover:border-gray-500"
                       }`}
                       title="Cancel Order"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                   </div>
                 </div>
