@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { X, CreditCard, DollarSign, Receipt, RotateCcw, Gift, Split, Calculator, QrCode, Printer, Mail, Plus, Minus, ReceiptIndianRupee } from "lucide-react";
 import { printBillFromOrderAuto } from "@/lib/print/bill";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useRegion } from "@/hooks/use-region";
+import { useBusinessModel } from "@/hooks/use-business-model";
 import { NumericKeypad } from "./NumericKeypad";
 import { OrderItem, Order } from "@/types/orders";
 import { calculateLegalBilling, LegalBillingResult, BillingConfig } from "@/lib/utils/legal-billing";
 import { useDefaultAlcoholTaxRate } from "@/hooks/use-billing-settings";
 import { useProducts } from '@/hooks/use-products';
-import { useBusinessModel } from '@/hooks/use-business-model';
 
 interface PaymentMethod {
   id: string;
@@ -76,7 +77,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const { data: allProducts, isLoading: productsLoading } = useProducts();
   
   // Business model detection
-  const businessModel = useBusinessModel();
+  const { businessModel } = useBusinessModel();
 
   // Reset discount and service charge when order changes
   useEffect(() => {
@@ -144,6 +145,8 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   
   // Currency formatter
   const { format } = useCurrency();
+  const { currentRegion } = useRegion();
+  
   const getCurrencySymbol = (code: string): string => {
     try {
       const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(0);
@@ -152,6 +155,21 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
       return symbol || code;
     } catch {
       return code;
+    }
+  };
+
+  // Get quick discount buttons based on mode and region
+  const getQuickDiscountButtons = () => {
+    if (discountMode === 'percent') {
+      return [5, 10, 15];
+    } else {
+      // Amount mode - different values based on region
+      if (currentRegion?.id === 'india') {
+        return [50, 100, 150];
+      } else {
+        // For UK and US, use smaller amounts
+        return [5, 10, 15];
+      }
     }
   };
 
@@ -278,9 +296,11 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   // Debug logging
   console.log('PaymentDrawer - Legal Billing:', legalBilling);
   
-  const changeDue = Math.max(0, (cashReceived || 0) - (finalTotal || 0));
-  const amountRemaining = Math.max(0, (finalTotal || 0) - (cashReceived || 0));
-  const exactCashAmount = finalTotal;
+  // For cash payments, use rounded total; for other payments, use original total
+  const effectiveTotal = selectedPaymentMethod?.type === 'cash' ? Math.round(finalTotal || 0) : (finalTotal || 0);
+  const changeDue = Math.max(0, (cashReceived || 0) - effectiveTotal);
+  const amountRemaining = Math.max(0, effectiveTotal - (cashReceived || 0));
+  const exactCashAmount = effectiveTotal;
 
   // Update partial amount when discount changes (after finalTotal is calculated)
   useEffect(() => {
@@ -326,11 +346,20 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setSelectedPaymentMethod(method);
+    
+    // Auto-round for cash payments
+    if (method.type === 'cash' && finalTotal) {
+      const roundedAmount = Math.round(finalTotal);
+      setCashReceived(roundedAmount);
+      setCashInput(roundedAmount.toFixed(2));
+      setSelectedQuickAmount(null); // Clear any selected quick amount
+    }
   };
 
   const handleExactCash = () => {
-    setCashReceived(finalTotal || 0);
-    setCashInput((finalTotal || 0).toFixed(2));
+    const roundedAmount = Math.round(finalTotal || 0);
+    setCashReceived(roundedAmount);
+    setCashInput(roundedAmount.toFixed(2));
     setSelectedQuickAmount("exact");
   };
 
@@ -348,11 +377,13 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
   const handleReprint = async () => {
     try {
       await printBillFromOrderAuto(order, order.paymentStatus === "paid", {
+        method: selectedPaymentMethod?.type || 'unknown',
         discountMode,
         discountInput,
         isDiscountEnabled,
         serviceChargeEnabled: isServiceChargeEnabled,
         serviceChargeRate,
+        businessModel
       } as any);
     } catch (error) {
       console.error('Failed to reprint bill:', error);
@@ -952,7 +983,7 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
 
                     {/* Quick buttons */}
                     <div className="grid grid-cols-4 gap-2">
-                      {[5, 10, 15].map((v) => (
+                      {getQuickDiscountButtons().map((v) => (
                         <button
                           key={v}
                           onClick={() => {
@@ -1134,7 +1165,6 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                       onClick={() => {
                         handleExactCash();
                         setSelectedQuickAmount("exact");
-                        setCashBoth(String(finalTotal || 0));
                       }}
                       disabled={showReceipt}
                       className={`py-2 px-3 rounded-lg transition-colors duration-200 ${
@@ -1180,10 +1210,18 @@ export default function PaymentDrawer({ isOpen, onClose, order, onPaymentComplet
                     disabled={showReceipt}
                   />
 
+                  {/* Rounded Total Display for Cash Payments */}
+                  {selectedPaymentMethod?.type === 'cash' && cashReceived > 0 && Math.round(finalTotal || 0) !== (finalTotal || 0) && (
+                    <div className="flex justify-between items-center text-sm mb-2">
+                      <span className="text-gray-600">Rounded Total:</span>
+                      <span className="font-semibold text-blue-600">{format(Math.round(finalTotal || 0))}</span>
+                    </div>
+                  )}
+
                   {cashReceived > 0 && (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">{cashReceived >= (finalTotal || 0) ? "Change Due:" : "Remaining:"}</span>
-                      <span className="font-semibold text-gray-800">{format((cashReceived >= (finalTotal || 0) ? (changeDue || 0) : (amountRemaining || 0)))}</span>
+                      <span className="text-gray-600">{cashReceived >= effectiveTotal ? "Change Due:" : "Remaining:"}</span>
+                      <span className="font-semibold text-gray-800">{format((cashReceived >= effectiveTotal ? (changeDue || 0) : (amountRemaining || 0)))}</span>
                     </div>
                   )}
                 </div>

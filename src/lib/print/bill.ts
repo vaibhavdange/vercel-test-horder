@@ -332,6 +332,7 @@ type PrintAdjustments = {
   isDiscountEnabled?: boolean;
   serviceChargeEnabled?: boolean;
   serviceChargeRate?: number; // percent
+  businessModel?: 'COUNTER_SERVICE' | 'FINE_DINE' | 'NO_TAX';
 };
 
 export async function printSplitBill(
@@ -432,7 +433,9 @@ export async function printSplitBill(
         alcoholTotal: 0,
         totalPayable: legalBilling.foodTotal,
       } as typeof legalBilling;
-      const foodHtml = generateFoodBillFromOrder(order, foodOnly, businessDetails);
+      // Calculate rounded total for cash payments
+      const roundedTotal = paymentDetails?.method === 'cash' ? Math.round(legalBilling.foodTotal) : undefined;
+      const foodHtml = generateFoodBillFromOrder(order, foodOnly, businessDetails, roundedTotal, paymentDetails?.businessModel);
       console.log("PRINT DEBUG - Food Bill HTML:\n", foodHtml);
       prints.push(foodHtml);
     }
@@ -450,7 +453,9 @@ export async function printSplitBill(
         foodTotal: 0,
         totalPayable: legalBilling.alcoholTotal,
       } as typeof legalBilling;
-      const liquorHtml = generateLiquorBillFromOrder(order, liquorOnly, businessDetails);
+      // Calculate rounded total for cash payments
+      const liquorRoundedTotal = paymentDetails?.method === 'cash' ? Math.round(legalBilling.alcoholTotal) : undefined;
+      const liquorHtml = generateLiquorBillFromOrder(order, liquorOnly, businessDetails, liquorRoundedTotal, paymentDetails?.businessModel);
       console.log("PRINT DEBUG - Liquor Bill HTML:\n", liquorHtml);
       prints.push(liquorHtml);
     }

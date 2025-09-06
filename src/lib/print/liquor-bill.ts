@@ -34,6 +34,8 @@ export interface LiquorBillData {
   vatBreakdown: Array<{ rate: number; base: number; tax: number }>;
   totalPayable: number;
   totalItems: number;
+  roundedTotal?: number; // For cash payments
+  businessModel?: 'COUNTER_SERVICE' | 'FINE_DINE'; // Business model for tax display logic
 }
 
 export function generateLiquorBillHTML(data: LiquorBillData): string {
@@ -275,6 +277,13 @@ export function generateLiquorBillHTML(data: LiquorBillData): string {
       <div class="amt">${data.totalItems.toFixed(2)}</div>
     </div>
     
+    ${data.roundedTotal && data.roundedTotal !== data.totalPayable ? `
+    <div class="row">
+      <div class="label">Rounded Total</div>
+      <div class="amt">${formatCurrency(data.roundedTotal)}</div>
+    </div>
+    ` : ''}
+    
     <div class="separator">
       <br>
     </div>
@@ -304,7 +313,9 @@ export function generateLiquorBillFromOrder(
     website: string;
     fssai: string;
     gstin: string;
-  }
+  },
+  roundedTotal?: number,
+  businessModel?: 'COUNTER_SERVICE' | 'FINE_DINE'
 ): string {
   const items = (legalBilling.alcoholItems || []).map(item => {
     const quantity = item.quantity || 0;
@@ -360,7 +371,9 @@ export function generateLiquorBillFromOrder(
     grandTotal: grandBeforeTax,
     vatBreakdown,
     totalPayable,
-    totalItems: items.reduce((sum, item) => sum + item.quantity, 0)
+    totalItems: items.reduce((sum, item) => sum + item.quantity, 0),
+    roundedTotal,
+    businessModel
   };
 
   return generateLiquorBillHTML(billData);

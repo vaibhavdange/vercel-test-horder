@@ -1366,15 +1366,15 @@ export default function NewOrderPage() {
           )}
 
           {/* Order Summary Header */}
-          <div className="flex items-center px-6 border-b border-gray-200" style={{ height: '47px' }}>
+          {/**<div className="flex items-center px-6 border-b border-gray-200" style={{ height: '47px' }}>
             <h2 className="text-lg font-bold text-gray-900">Order Summary</h2>
-          </div>
+          </div>*/}
 
           {/* Order Items */}
           <div className="flex-1 p-6 overflow-y-auto">
             {orderItems.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
-                <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                {/**<ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />*/}
                 <p>No items in order</p>
                 <p className="text-sm">Select items from the menu to add to your order</p>
               </div>
@@ -1384,7 +1384,7 @@ export default function NewOrderPage() {
                   <div key={item.key} className="border-b border-gray-200 pb-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                        <span className="text-green-600 text-sm font-medium px-1 py-1">
                           {(index + 1).toString().padStart(2, '0')}
                         </span>
                         <h4 className="font-medium text-gray-900">{item.productName}</h4>
@@ -1474,11 +1474,20 @@ export default function NewOrderPage() {
           </div>
 
           {/* Order Totals and Actions */}
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="p-6 border-t border-gray-200">
             {orderItems.length > 0 && (
-              <div className="space-y-3 mb-4">
+              <div className="space-y-1 mb-4">
+                
+                
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Estimated Total:</span>
+                  <span className="text-green-600">{format(calculations.totalPayable)}</span>
+                </div>
+                <div className="text-xs text-gray-500 italic">
+                      {calculations.displayNote}
+                  </div>
                 {/* Dynamic display based on business model */}
-                {businessModel.businessModel === 'COUNTER_SERVICE' && (
+                {/**{businessModel.businessModel === 'COUNTER_SERVICE' && (
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal:</span>
@@ -1497,9 +1506,9 @@ export default function NewOrderPage() {
                       </div>
                     )}
                   </>
-                )}
+                )}*/}
                 
-                {businessModel.businessModel === 'FINE_DINE' && (
+                {/**{businessModel.businessModel === 'FINE_DINE' && (
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Running Total:</span>
@@ -1509,9 +1518,9 @@ export default function NewOrderPage() {
                       {calculations.displayNote}
                     </div>
                   </>
-                )}
+                )}*/}
                 
-                {businessModel.businessModel === 'NO_TAX' && (
+                {/**{businessModel.businessModel === 'NO_TAX' && (
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal:</span>
@@ -1524,12 +1533,7 @@ export default function NewOrderPage() {
                       </div>
                     )}
                   </>
-                )}
-                
-                <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                  <span>Total:</span>
-                  <span className="text-green-600">{format(calculations.totalPayable)}</span>
-                </div>
+                )}*/}
               </div>
             )}
 

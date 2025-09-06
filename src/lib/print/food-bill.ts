@@ -35,6 +35,8 @@ export interface FoodBillData {
   gstBreakdown: Array<{ rate: number; base: number; tax: number }>;
   totalPayable: number;
   totalItems: number;
+  roundedTotal?: number; // For cash payments
+  businessModel?: 'COUNTER_SERVICE' | 'FINE_DINE' | 'NO_TAX'; // Business model for tax display logic
 }
 
 export function generateFoodBillHTML(data: FoodBillData): string {
@@ -242,7 +244,11 @@ export function generateFoodBillHTML(data: FoodBillData): string {
   
   <div class="separator"></div>
   
-  ${data.gstBreakdown.map(gst => {
+  ${data.businessModel === 'NO_TAX' ? `
+    <div class="row">
+      <div class="label">This store does not charge any taxes</div>
+    </div>
+  ` : data.gstBreakdown.map(gst => {
     const halfRate = gst.rate / 2;
     const halfTax = gst.tax / 2;
     return `
@@ -273,6 +279,13 @@ export function generateFoodBillHTML(data: FoodBillData): string {
     <div class="amt">${data.totalItems.toFixed(2)}</div>
   </div>
   
+  ${data.roundedTotal && data.roundedTotal !== data.totalPayable ? `
+  <div class="row">
+    <div class="label">Rounded Total</div>
+    <div class="amt">${formatCurrency(data.roundedTotal)}</div>
+  </div>
+  ` : ''}
+  
   <div class="separator"></div>
   
   <div class="footer">
@@ -301,7 +314,9 @@ export function generateFoodBillFromOrder(
     website: string;
     fssai: string;
     gstin: string;
-  }
+  },
+  roundedTotal?: number,
+  businessModel?: 'COUNTER_SERVICE' | 'FINE_DINE' | 'NO_TAX'
 ): string {
   const items = (legalBilling.foodItems || []).map(item => {
     const quantity = item.quantity || 0;
@@ -358,7 +373,9 @@ export function generateFoodBillFromOrder(
     grandTotal: grandBeforeTax,
     gstBreakdown,
     totalPayable,
-    totalItems: items.reduce((sum, item) => sum + item.quantity, 0)
+    totalItems: items.reduce((sum, item) => sum + item.quantity, 0),
+    roundedTotal,
+    businessModel
   };
 
   return generateFoodBillHTML(billData);

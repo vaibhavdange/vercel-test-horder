@@ -180,6 +180,15 @@ export function TableCard({
 
   const isClickable = table.status !== 'unavailable' && table.status !== 'cleaning';
 
+  // Check if any order has "ready" status
+  const hasReadyOrder = useMemo(() => {
+    if (!table.orders?.length) return false;
+    const sortedOrders = [...(table.orders || [])].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return sortedOrders.some(order => order.status === 'ready');
+  }, [table.orders]);
+
   return (
     <div className={`relative group table-card ${isEditMode ? 'edit-mode' : ''}`}>
       <div
@@ -188,6 +197,7 @@ export function TableCard({
           ${getTableStatusColor(table.status)}
           bg-white
           ring-2 ring-offset-2 ring-offset-white ${getStatusRingClass(table.status)}
+          ${hasReadyOrder ? 'ready-animation' : ''}
         `}
         onClick={() => isClickable && onTableClick(table)}
         style={{ cursor: isClickable ? 'pointer' : 'default' }}

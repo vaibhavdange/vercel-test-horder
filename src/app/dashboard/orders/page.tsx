@@ -794,12 +794,13 @@ export default function OrdersPage() {
                        </div>
                     ) : (
                     <div className="flex items-center space-x-2">
-                      {order.status === "ready" && <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />}
-                      {order.status === "in-process" && <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />}
-                      {order.status === "pending" && <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-gray-600" />}
+                      {order.status === "ready" && <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />}
+                      {order.status === "in-process" && <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-600" />}
+                      {order.status === "pending" && <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />}
                       <span className={`text-[10px] sm:text-xs font-medium ${
-                        order.status === "ready" ? "text-blue-600" :
-                        order.status === "in-process" ? "text-orange-600" :
+                        order.status === "ready" ? "text-green-600" :
+                        order.status === "in-process" ? "text-yellow-600" :
+                        order.status === "pending" ? "text-red-600" :
                         "text-gray-600"
                       }`}>
                         {order.status === "pending" ? "Queued" :
@@ -813,7 +814,7 @@ export default function OrdersPage() {
                     
                     {/* Amendment Indicator */}
                     {isOrderAmended(order) && (
-                      <span className="text-[10px] sm:text-xs font-medium text-purple-600 opacity-80">✏️ Amended</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-purple-600 opacity-80">Amended</span>
                     )}
                     
                                          {/* Kitchen Timer - Only show for non-completed orders */}
@@ -874,6 +875,12 @@ export default function OrdersPage() {
                       className={`p-1.5 sm:p-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${
                         order.status === "completed" || order.status === "cancelled"
                           ? "text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed"
+                          : order.status === "pending"
+                          ? "text-white bg-red-500 hover:bg-red-600 border border-red-500 hover:border-red-600"
+                          : order.status === "in-process"
+                          ? "text-white bg-yellow-500 hover:bg-yellow-600 border border-yellow-500 hover:border-yellow-600"
+                          : order.status === "ready"
+                          ? "text-white bg-green-500 hover:bg-green-600 border border-green-500 hover:border-green-600"
                           : "text-gray-800 bg-gray-200 hover:bg-gray-300 border border-gray-300 hover:border-gray-400"
                       }`}
                       title={getNextStatusInfo(order.status).buttonText}
@@ -888,7 +895,7 @@ export default function OrdersPage() {
                       className={`p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border flex-shrink-0 ${
                         order.status === "completed" || order.status === "cancelled"
                           ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
-                          : "text-gray-700 hover:text-gray-900 hover:bg-gray-100 border-gray-300 hover:border-gray-400"
+                          : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border-blue-300 hover:border-blue-400"
                       }`}
                       title="Amend Order - Add/Remove Items"
                     >
@@ -899,7 +906,7 @@ export default function OrdersPage() {
                     {order.paymentStatus === "paid" ? (
                       <button 
                         onClick={() => handleRefund(order)}
-                        className="p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border text-gray-800 bg-gray-200 hover:bg-gray-300 border-gray-300 hover:border-gray-400 flex-shrink-0"
+                        className="p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border text-orange-600 hover:text-orange-800 hover:bg-orange-50 border-orange-300 hover:border-orange-400 flex-shrink-0"
                         title="Process Refund"
                       >
                         <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -916,7 +923,7 @@ export default function OrdersPage() {
                     ) : (
                       <button 
                         onClick={() => handlePayment(order)}
-                        className="p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border text-gray-700 hover:text-gray-900 hover:bg-gray-100 border-gray-300 hover:border-gray-400 flex-shrink-0"
+                        className="p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border text-green-600 hover:text-green-800 hover:bg-green-50 border-green-300 hover:border-green-400 flex-shrink-0"
                         title="Process Payment"
                       >
                         <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -926,7 +933,7 @@ export default function OrdersPage() {
                     {/* Print Bill Button */}
                     <button 
                       onClick={() => handlePrintBill(order)}
-                      className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200 border border-gray-300 hover:border-gray-400 flex-shrink-0"
+                      className="p-1.5 sm:p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors duration-200 border border-purple-300 hover:border-purple-400 flex-shrink-0"
                       title="Print Bill"
                     >
                       <Printer className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -939,7 +946,7 @@ export default function OrdersPage() {
                       className={`p-1.5 sm:p-2 rounded-lg transition-colors duration-200 border disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${
                         order.status === "cancelled" || order.status === "completed"
                           ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
-                          : "text-gray-800 hover:text-gray-900 hover:bg-gray-200 border-gray-400 hover:border-gray-500"
+                          : "text-red-600 hover:text-red-800 hover:bg-red-50 border-red-300 hover:border-red-400"
                       }`}
                       title="Cancel Order"
                     >
