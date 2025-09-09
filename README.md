@@ -1,6 +1,14 @@
 # HORDER - Point of Sale System
 
-A modern, professional Point of Sale system designed for restaurants and retail businesses. Built with Next.js 15, TypeScript, and Tailwind CSS.
+A modern, professional Point of Sale system designed for restaurants and retail businesses. Built with Next.js 15, TypeScript, Tailwind CSS, and Supabase.
+
+## 📋 Project Status
+
+**Current Status:** 85-90% Complete - Production Ready  
+**Last Updated:** January 2025  
+**Development Time:** ~1 Month  
+
+This POS system is feature-complete with all major restaurant management modules implemented and ready for production deployment.
 
 ## 🎨 Design Features
 
@@ -55,12 +63,15 @@ A modern, professional Point of Sale system designed for restaurants and retail 
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: Next.js 15, React 18, TypeScript
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
 - **Styling**: Tailwind CSS with custom design system
 - **Icons**: Lucide React
-- **State Management**: React hooks and local state
+- **State Management**: Zustand + React Query
+- **Authentication**: Clerk + Supabase Auth
+- **Database**: PostgreSQL with Supabase
+- **Deployment**: Vercel (Production Ready)
 - **Build Tool**: Next.js with Turbopack
-- **Desktop App**: Electron integration ready
 
 ## 📱 Pages & Routes
 
@@ -74,11 +85,29 @@ A modern, professional Point of Sale system designed for restaurants and retail 
 - `/dashboard/reservation` - Reservation system
 - `/dashboard/settings` - User profile and system settings
 
+## 📁 Project Organization
+
+The project has been recently cleaned up and organized for better maintainability:
+
+- **`/docs/`** - All project documentation and implementation guides
+- **`/src/`** - Main application source code
+- **`/supabase/`** - Database migrations and schema
+- **`/scripts/`** - Development and setup scripts
+- **Configuration files** - Properly organized in root directory
+
+### Key Improvements Made:
+- ✅ Consolidated duplicate Supabase client files
+- ✅ Moved all documentation to `/docs/` folder
+- ✅ Removed temporary and development files
+- ✅ Cleaned up root directory structure
+- ✅ Updated project documentation
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
+- Supabase account (for database and storage)
 
 ### Installation
 
@@ -93,7 +122,13 @@ cd horder-pos
 npm install
 ```
 
-3. Run the development server:
+3. Set up environment variables:
+```bash
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
+```
+
+4. Run the development server:
 ```bash
 npm run dev
 ```
@@ -201,6 +236,18 @@ The system is designed to work with various data sources:
 4. Test thoroughly
 5. Submit a pull request
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the `/docs/` folder:
+
+- **`PROJECT_STATUS.md`** - Current project status and completion details
+- **`IMPLEMENTATION_SUMMARY.md`** - Unified billing engine implementation
+- **`MIGRATION_GUIDE.md`** - Database migration guide for settings
+- **`SupabaseDB.md`** - Complete database schema documentation
+- **`Suggestion_Billin_Engine.md`** - Billing engine strategy and design
+- **`staff_page_changes.md`** - Staff management refactoring guide
+- **`table_page_improvements.md`** - Table management UI improvements
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -209,7 +256,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For support and questions:
 - Create an issue in the repository
-- Check the documentation
+- Check the documentation in `/docs/` folder
 - Review the code examples
 
 ---

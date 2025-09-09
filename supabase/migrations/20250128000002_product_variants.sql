@@ -23,7 +23,7 @@ CREATE POLICY "Allow all operations for authenticated users" ON public.product_v
   FOR ALL USING (auth.role() = 'authenticated');
 
 -- Insert some sample variants for testing
-INSERT INTO public.product_variants (id, productId, name, price, isActive) VALUES
-  ('var_001', 'prod_001', '30ml', 0.0, true),
-  ('var_002', 'prod_001', '60ml', 50.0, true),
-  ('var_003', 'prod_001', '90ml', 75.0, true);
+INSERT INTO public.product_variants (id, productId, name, price, isActive, updatedAt) VALUES
+  ('var_001', 'prod_001', '30ml', 0.0, true, CURRENT_TIMESTAMP),
+  ('var_002', 'prod_001', '60ml', 50.0, true, CURRENT_TIMESTAMP),
+  ('var_003', 'prod_001', '90ml', 75.0, true, CURRENT_TIMESTAMP);

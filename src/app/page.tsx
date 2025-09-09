@@ -14,11 +14,25 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [subdomainError, setSubdomainError] = useState<string | null>(null);
   const router = useRouter();
   const { settings } = useSettings();
   
   // Use Supabase session
   const { session, loading: sessionLoading, isAuthenticated } = useSession();
+
+  // Check for subdomain errors from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const subdomain = urlParams.get('subdomain');
+    
+    if (error === 'tenant-not-found') {
+      setSubdomainError(`Restaurant "${subdomain}" not found. Please check the URL or contact support.`);
+    } else if (error === 'subdomain-error') {
+      setSubdomainError('There was an error accessing the restaurant. Please try again or contact support.');
+    }
+  }, []);
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -70,7 +84,8 @@ export default function LoginPage() {
   }
 
   // Get restaurant name from settings, fallback to 'HORDER' if not set
-  const restaurantName = settings?.restaurantName || 'HORDER';
+  //const restaurantName = settings?.restaurantName|| 'HORDER';
+  const restaurantName = 'HORDERS';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-800 via-green-700 to-green-900 relative flex items-center justify-center p-4 overflow-hidden">
@@ -84,7 +99,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-strong p-8 border border-gray-100">
           {/* Form Header */}
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Login to {restaurantName}</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Login to HORDERS POS</h2>
             <p className="text-gray-600">Please enter your credentials below</p>
           </div>
 
@@ -172,7 +187,22 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Error Message */}
+          {/* Subdomain Error Message */}
+          {subdomainError && (
+            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-5 h-5 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-orange-600 text-xs">!</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-orange-800">Restaurant Not Found</p>
+                  <p className="text-sm text-orange-700">{subdomainError}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Login Error Message */}
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-600 text-center">{error}</p>

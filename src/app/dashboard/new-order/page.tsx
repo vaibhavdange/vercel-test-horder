@@ -1234,7 +1234,7 @@ export default function NewOrderPage() {
                             <OptimizedImage
                               src={productImage}
                               alt={item.name}
-                              className="h-full w-full object-cover hover:scale-105 transition-transform duration-300"
+                              className="h-full w-full object-cover hover:scale-115 transition-transform duration-300"
                               priority={false}
                               fill
                               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

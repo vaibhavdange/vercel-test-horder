@@ -724,13 +724,13 @@ export default function MenuPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
-                        <div>
+                        <div className="h-12 w-12 overflow-hidden rounded-lg">
                           <OptimizedImage
                             src={product.thumbnail || product.image || ''}
                             alt={product.name}
                             width={48}
                             height={48}
-                            className="rounded-lg"
+                            className="h-full w-full"
                             fallbackIcon={
                               <div className="text-2xl opacity-60">
                                 {product.category?.icon || "🍴"}

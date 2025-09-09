@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, X, Image as ImageIcon, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from './button';
 import { Card } from './card';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
 
 interface ImageUploadProps {
   onImageUpload: (imageUrl: string, thumbnailUrl: string) => void;

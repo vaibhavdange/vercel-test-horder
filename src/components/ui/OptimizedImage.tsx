@@ -64,7 +64,7 @@ export function OptimizedImage({
   // If it's a local image, use Next.js Image component for optimization
   if (isLocalImage) {
     return (
-      <div className={`relative ${className}`} style={fill ? undefined : { width, height }}>
+      <div className={`relative overflow-hidden ${className}`} style={fill ? undefined : { width, height }}>
         {isLoading && (
           <div className="absolute inset-0 bg-gray-200 rounded-lg flex items-center justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
@@ -77,7 +77,7 @@ export function OptimizedImage({
             alt={alt}
             fill
             sizes={sizes}
-            className={`rounded-lg object-cover ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
+            className={`rounded-lg object-cover scale-110 ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
             onLoad={handleImageLoad}
             onError={handleImageError}
             priority={priority}
@@ -89,7 +89,7 @@ export function OptimizedImage({
             alt={alt}
             width={width}
             height={height}
-            className={`rounded-lg object-cover ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
+            className={`rounded-lg object-cover scale-110 ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}
             onLoad={handleImageLoad}
             onError={handleImageError}
             priority={priority}
@@ -109,7 +109,7 @@ export function OptimizedImage({
   // If it's an external image, use regular img tag with error handling
   if (isExternalImage) {
     return (
-      <div className={`relative ${className}`} style={fill ? undefined : { width, height }}>
+      <div className={`relative overflow-hidden ${className}`} style={fill ? undefined : { width, height }}>
         {isLoading && (
           <div className="absolute inset-0 bg-gray-200 rounded-lg flex items-center justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
@@ -121,7 +121,7 @@ export function OptimizedImage({
           alt={alt}
           width={fill ? undefined : width}
           height={fill ? undefined : height}
-          className={`rounded-lg object-cover ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200 ${fill ? 'w-full h-full' : ''}`}
+          className={`rounded-lg object-cover scale-110 ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200 ${fill ? 'w-full h-full' : ''}`}
           onLoad={handleImageLoad}
           onError={handleImageError}
         />
